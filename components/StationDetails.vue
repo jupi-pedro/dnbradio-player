@@ -1,5 +1,5 @@
 <template>
-  <div v-show="loaded" class="overlap-screen">
+  <div v-if="props.station" v-show="loaded" class="overlap-screen">
     <div class="viscanvas-container" id="viscanvas-container">
       <canvas id="viscanvas"></canvas>
     </div>
@@ -113,7 +113,7 @@
           <v-bottom-navigation class="flat stationNav" grow>
             <button
             :disabled="!station || !station.podcast"
-            @click="$router.push('/stations/' + currIndex + '/podcast')"
+            @click="router.push('/stations/' + currIndex + '/podcast')"
             class="nav-button"
             >
               <v-icon dark size="24">voicemail</v-icon>
@@ -121,7 +121,7 @@
             </button>
             <button
               :disabled="!station"
-              @click="$router.push('/stations/' + currIndex + '/schedule')"
+              @click="router.push('/stations/' + currIndex + '/schedule')"
               value="calendar"
               class="nav-button"
             >
@@ -129,7 +129,7 @@
               <p>schedule</p>
             </button>
             <button
-              @click="$router.push('/stations/' + currIndex + '/donate')"
+              @click="router.push('/stations/' + currIndex + '/donate')"
               value="favorite"
               class="nav-button"
             >
@@ -147,7 +147,7 @@
             </button>
             <button
               :disabled="!station"
-              @click="$router.push('/stations/' + currIndex + '/chat')"
+              @click="router.push('/stations/' + currIndex + '/chat')"
               value="chat"
               class="nav-button"
             >
@@ -161,7 +161,7 @@
                 type="text"
                 rounded
                 color="transparent"
-                @click="$router.push('/stations/' + currIndex + '/donate')"
+                @click="router.push('/stations/' + currIndex + '/donate')"
               >
               <p class="hidden-sm-and-up user-keep-up" :class="(windowHeight > windowWidth) ? 'middle-font': 'normal-font'">
                 Keepin' the beats rollin' on dnbradio!
@@ -270,7 +270,7 @@ import { useStationStore } from "@/stores/station";
 import { useRoute, useRouter } from "vue-router";
 
 const props = defineProps<{
-  station: any
+  station: any | null
 }>()
 
 const route = useRoute()
@@ -290,7 +290,7 @@ const bottomNav = ref("favorite")
 const shuffleOn = ref(false)
 const likedOn = ref(false)
 const showStationDetails = ref(false)
-const loaded = ref(false)
+const loaded = ref(true) // Start as true to show content immediately
 const nowplaying = ref({
   artist: null,
   title: null,
@@ -496,55 +496,65 @@ const initPlayer = async (auto?: boolean) => {
     })
     .catch((err) => {
       console.log(err);
-    });
-}
-    togglePlankton() {
-      if (this.visOn == false) {
-        this.currentVis = "plankton";
-        this.visOn = true;
-        plankton();
-      } else {
-        this.currentVis = null;
-        var element = document.getElementById("viscanvas");
-        element.parentNode.removeChild(element);
-        if (window.animId) {
-          cancelAnimationFrame(window.animId);
-        }
-        let tela = window.document.createElement("canvas");
-        tela.id = "viscanvas";
-        document.getElementById("viscanvas-container").appendChild(tela);
-        this.visOn = false;
-        for (var i = 0; i < window.timeouts.length; i++) {
-          clearTimeout(window.timeouts[i]);
-        }
+      });
+  }
+
+const togglePlankton = () => {
+  if (visOn.value == false) {
+    currentVis.value = "plankton";
+    visOn.value = true;
+    plankton();
+  } else {
+    currentVis.value = null;
+    var element = document.getElementById("viscanvas");
+    if (element && element.parentNode) {
+      element.parentNode.removeChild(element);
+    }
+    if (window.animId) {
+      cancelAnimationFrame(window.animId);
+    }
+    let tela = window.document.createElement("canvas");
+    tela.id = "viscanvas";
+    const container = document.getElementById("viscanvas-container");
+    if (container) {
+      container.appendChild(tela);
+    }
+    visOn.value = false;
+    if (window.timeouts) {
+      for (var i = 0; i < window.timeouts.length; i++) {
+        clearTimeout(window.timeouts[i]);
       }
-    },
-    launchPopup() {
-      this.pause();
-      var windowopen;
-      if (windowopen == true) {
-        wind.focus();
-        return true;
-      } else {
-        let width = 422;
-        let height = 600;
-        if (
-          (window.innerHeight == height || window.outerHeight == height) &&
-          (window.innerWidth == width || window.outerWidth == width)
-        ) {
-          return false;
-        }
-        var props =
-          "width=" +
-          width +
-          ",height=" +
-          height +
-          ",left=25,top=25,screenX=100,screenY=100,resizable=0,scrollbars=0,toolbar=no,location=no,status=no,menubar=no,copyhistory=no,directories=no";
-        var wind = window.open(window.location.href, "formPopup", props);
-        var windopen = true;
-        return true;
-      }
-    },
+    }
+  }
+};
+
+const launchPopup = () => {
+  pause();
+  let wind: Window | null = null;
+  let windowopen = false;
+  if (windowopen == true && wind) {
+    wind.focus();
+    return true;
+  } else {
+    let width = 422;
+    let height = 600;
+    if (
+      (window.innerHeight == height || window.outerHeight == height) &&
+      (window.innerWidth == width || window.outerWidth == width)
+    ) {
+      return false;
+    }
+    var props =
+      "width=" +
+      width +
+      ",height=" +
+      height +
+      ",left=25,top=25,screenX=100,screenY=100,resizable=0,scrollbars=0,toolbar=no,location=no,status=no,menubar=no,copyhistory=no,directories=no";
+    wind = window.open(window.location.href, "formPopup", props);
+    windowopen = true;
+    return true;
+  }
+};
 const launchLink = (link: string) => {
   $dialog
     .confirm({

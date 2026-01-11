@@ -1,5 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 /// <reference types="nuxt" />
+import { defineNuxtConfig } from 'nuxt/config'
+
 const rightNow = new Date();
 const APP_VERSION = rightNow
   .toISOString()
@@ -40,8 +42,8 @@ export default defineNuxtConfig({
   plugins: [
     { src: "~/plugins/eventbus.ts", mode: "client" },
     { src: "~/plugins/vuetify.ts", mode: "client" },
-    { src: "~/plugins/vuetify-dialog.ts", mode: "client" },
     { src: "~/plugins/createjs.ts", mode: "client" },
+    { src: "~/plugins/vuetify-dialog.ts", mode: "client" },
     { src: "~/plugins/headful.ts", mode: "client" },
     { src: "~/plugins/init-stations.ts", mode: "client" },
   ],

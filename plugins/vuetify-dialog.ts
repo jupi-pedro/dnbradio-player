@@ -1,6 +1,11 @@
-import VuetifyDialog from 'vuetify-dialog'
-import 'vuetify-dialog/dist/vuetify-dialog.css'
-
-export default defineNuxtPlugin((nuxtApp) => {
-  nuxtApp.vueApp.use(VuetifyDialog)
+export default defineNuxtPlugin(async (nuxtApp) => {
+  try {
+    const VuetifyDialogModule = await import('vuetify-dialog')
+    await import('vuetify-dialog/dist/vuetify-dialog.css')
+    const VuetifyDialog = VuetifyDialogModule.default || VuetifyDialogModule
+    nuxtApp.vueApp.use(VuetifyDialog)
+  } catch (error) {
+    console.warn('vuetify-dialog not available:', error)
+    // Continue without vuetify-dialog
+  }
 })

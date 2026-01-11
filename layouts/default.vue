@@ -9,7 +9,8 @@
 </template>
 
 <script setup lang="ts">
-onBeforeMount(() => {
+onMounted(() => {
+  console.log('Default layout mounted');
   if (process.client) {
     let userAgent = navigator.userAgent;
     console.log(userAgent);

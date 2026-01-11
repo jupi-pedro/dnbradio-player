@@ -8,7 +8,9 @@
 import StationList from "~/components/StationList";
 import { useStationStore } from "@/stores/station";
 import stations from "@/data/stations";
+import { useRoute } from "vue-router";
 
+const route = useRoute();
 const stationStore = useStationStore();
 
 // Ensure stations are loaded
@@ -19,9 +21,9 @@ onMounted(async () => {
   }
 });
 
+// Computed properties matching Vue 2 structure
 const currenStationIndex = computed(() => {
   if (stationStore.stations.length > 0) {
-    // Use == for type coercion matching Vue 2 behavior
     const foundStation = stationStore.stations.find(
       (item) => item.pathname && item.pathname == route.name
     );
@@ -53,6 +55,7 @@ const defaultStation = {
 
 const currentStation = computed(() => station.value || defaultStation);
 
+// Head configuration
 useHead({
   title: `${currentStation.value.title} : ${currentStation.value.description} [${currentStation.value.name}]`,
   meta: [
@@ -117,14 +120,8 @@ useHead({
     { rel: "apple-touch-icon", href: `${currentStation.value.cover}` },
   ],
 });
-
-onMounted(async () => {
-  if (stationStore.stations.length === 0) {
-    const stationsInitData = await stations();
-    stationStore.setStations(stationsInitData);
-  }
-});
 </script>
+
 <style>
 .v-autocomplete__content.v-menu__content .v-card {
   color: #fff;
