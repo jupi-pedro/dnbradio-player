@@ -1,12 +1,10 @@
 <template>
   <v-app theme="dark" v-cloak>
-    <ClientOnly>
-      <v-main class="module">
-        <v-container class="module-inside">
-          <slot />
-        </v-container>
-      </v-main>
-    </ClientOnly>
+    <v-main class="module">
+      <v-container class="module-inside">
+        <slot />
+      </v-container>
+    </v-main>
   </v-app>
 </template>
 

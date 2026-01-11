@@ -1066,21 +1066,26 @@ const streamurl = computed(() => {
   return props.station?.streams?.[0]?.url;
 })
 
-// Use useHead instead of vue-headful
+// Use useHead instead of vue-headful - make it reactive
+const headTitle = computed(() => pageTitle.value || 'dnbradio.com')
+const headDescription = computed(() => pageDescription.value || '')
+const headKeywords = computed(() => pageKeywords.value || '')
+const headImage = computed(() => pageImage.value || '')
+
 useHead({
-  title: () => pageTitle.value || 'dnbradio.com',
+  title: headTitle,
   meta: [
     {
       name: 'description',
-      content: () => pageDescription.value || ''
+      content: headDescription
     },
     {
       name: 'keywords',
-      content: () => pageKeywords.value || ''
+      content: headKeywords
     },
     {
       property: 'og:image',
-      content: () => pageImage.value || ''
+      content: headImage
     }
   ]
 })
@@ -1134,7 +1139,6 @@ watch(streamurl, (val) => {
   console.log("streamurl changed", val);
   initStream();
 })
-</script>
 </script>
 
 <style>

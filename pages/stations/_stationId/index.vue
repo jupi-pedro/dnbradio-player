@@ -1,41 +1,22 @@
 <template>
   <div>
-    <ClientOnly>
-      <StationList />
-    </ClientOnly>
+    <StationList />
   </div>
 </template>
 
 <script setup lang="ts">
-import stations from "@/data/stations";
 import StationList from "~/components/StationList";
-import Logo from "~/components/Logo.vue";
 import { useStationStore } from "@/stores/station";
-import { useRoute } from "vue-router";
+import stations from "@/data/stations";
 
-const route = useRoute();
 const stationStore = useStationStore();
 
-const currenStationIndex = computed(() => {
-  if (stationStore.stations.length > 0) {
-    const foundStation = stationStore.stations.find(
-      (item) => item.pathname && item.pathname === route.name
-    );
-    if (foundStation) {
-      return foundStation.id;
-    }
+// Ensure stations are loaded
+onMounted(async () => {
+  if (stationStore.stations.length === 0) {
+    const stationsInitData = await stations();
+    stationStore.setStations(stationsInitData);
   }
-  return route.params?.stationId ? Number(route.params.stationId) : 1;
-});
-
-const stationsList = computed(() => stationStore.stations);
-
-const station = computed(() => {
-  if (!stationsList.value || stationsList.value.length === 0) {
-    return null;
-  }
-  const currentIndex = currenStationIndex.value || 1;
-  return stationsList.value.find((item) => item.id == currentIndex);
 });
 
 const defaultStation = {
