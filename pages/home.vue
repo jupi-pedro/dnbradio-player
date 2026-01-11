@@ -59,17 +59,12 @@
   </div>
 </template>
 
-<script>
-import TopMenu from '~/components/TopMenu'
-export default {
-  layout: 'legacy',
-  components: { TopMenu },
-  methods: {
-    launchPlay() {
+<script setup lang="ts">
+definePageMeta({
+  layout: 'legacy'
+})
 
-    }
-  },
-  mounted() {
+onMounted(() => {
     var options = {
       width: '100%',
       height: '330',
@@ -84,11 +79,8 @@ export default {
     // var player = new Twitch.Player("twitchDiv", options);
     // player.setVolume(1);
 
-    var player = '';
-  }
-}
-
-
+  var player = '';
+})
 </script>
 <style>
 .playerNavBar {  margin-top: 12px; text-align: right; font-size: 16px; margin-bottom: 10px;}

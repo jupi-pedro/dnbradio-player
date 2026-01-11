@@ -8,62 +8,47 @@
 </div>
 </template>
 
-<script>
-
-// init data
+<script setup lang="ts">
 import stations from '@/data/stations'
-
-// models
-import Station from '@/models/Station'
-
-// comp
-import StationList from '~/components/StationList'
-import Logo from '~/components/Logo.vue'
-
+import { useStationStore } from "@/stores/station";
 import moment from 'moment-timezone'
 
-export default {
-  layout: 'ls-widget',
-  components: {
-    Logo,
-    StationList
-  },
-  async fetch () {
-    const stationsInitData = await stations()
-    Station.create({ data: stationsInitData })
-  },
-  data() {
-    return {
-      data: []
-    }
-  },
-  methods: {
-    fetchData() {
-      this.$axios.get('https://dnbradio.com/api/donations', {progress: false}).then((res) => {
-        this.data = res.data.filter((item) => moment(item.date) > moment().subtract(90, 'days'))
-        // remove duplicates
-        .filter((item, index, self) => index === self.findIndex((t) => (t.alias === item.alias)))
-        // round to nearest dollar
-        .map((item) => {
-          item.gross = Math.round(item.gross);
-          return item;
-        })
-        .sort((a, b) => b.gross - a.gross);
+definePageMeta({
+  layout: 'ls-widget'
+})
+
+const stationStore = useStationStore()
+
+const data = ref<any[]>([])
+
+const fetchData = () => {
+  $fetch('https://dnbradio.com/api/donations').then((res: any) => {
+    data.value = res.filter((item: any) => moment(item.date) > moment().subtract(90, 'days'))
+      // remove duplicates
+      .filter((item: any, index: number, self: any[]) => index === self.findIndex((t: any) => (t.alias === item.alias)))
+      // round to nearest dollar
+      .map((item: any) => {
+        item.gross = Math.round(item.gross);
+        return item;
       })
-    },
-  },
-  computed: {
-    filteredData() {
-      return this.data.slice(0, 10)
-    }
-  },
-  async mounted() {
-    this.fetchData()
-    setInterval(() => {
-      this.fetchData();
-    }, 60000);
-  }
+      .sort((a: any, b: any) => b.gross - a.gross);
+  })
 }
+
+const filteredData = computed(() => {
+  return data.value.slice(0, 10)
+})
+
+onMounted(async () => {
+  if (stationStore.stations.length === 0) {
+    const stationsInitData = await stations()
+    stationStore.setStations(stationsInitData)
+  }
+  fetchData()
+  setInterval(() => {
+    fetchData();
+  }, 60000);
+})
 </script>
 <style scoped>
   .donators {  font-family: 'Roboto', sans-serif; text-align:center; font-weight: 600; font-size: 1.9em; }

@@ -59,24 +59,22 @@
   </div>
 </template>
 
-<script>
-import TopMenu from '~/components/TopMenu'
+<script setup lang="ts">
+definePageMeta({
+  layout: 'legacy'
+})
 
-export default {
-  layout: 'legacy',
-  components: { TopMenu },
-  data() {
-    return {
-      form: {
-        search: ''
-      },
-      episodes: [
-        {
-          id: 44252,
-          artist: 'SyRan',
-          title: 'In The Mix 332',
-          date: '2021-10-07 18:00:15',
-          tracklist: `Vector, Macca & Loz Contreras feat. Charli Brix - Lose Myself
+const form = ref({
+  search: ''
+})
+
+const episodes = ref([
+  {
+    id: 44252,
+    artist: 'SyRan',
+    title: 'In The Mix 332',
+    date: '2021-10-07 18:00:15',
+    tracklist: `Vector, Macca & Loz Contreras feat. Charli Brix - Lose Myself
 <br />Eastcolors &amp; Noel - Moonwalker
 <br />Calibre - Think On
 <br />Karma - The Searching
@@ -86,11 +84,8 @@ export default {
 <br />Phase - Albatross (feat. Viv May)
 <br />Utah Jazz - Hold On
 <br />FinnaDrift - International A License`
-        }
-      ]
-    }
   }
-}
+])
 </script>
 <style>
 .archive .showTitle { font-size: 28px; font-weight: normal; }

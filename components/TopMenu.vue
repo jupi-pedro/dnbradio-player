@@ -1,5 +1,5 @@
 <template>
-  <v-tabs dark grow>
+  <v-tabs theme="dark" grow>
     <v-tab>home</v-tab>
     <v-tab @click="launchPlay">play
     </v-tab>
@@ -10,3 +10,11 @@
     <v-tab>chat</v-tab>
   </v-tabs>
 </template>
+
+<script setup lang="ts">
+const router = useRouter()
+
+const launchPlay = () => {
+  router.push('/stations/1')
+}
+</script>

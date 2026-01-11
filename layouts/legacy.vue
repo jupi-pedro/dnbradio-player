@@ -35,7 +35,7 @@
           </v-col>
           <v-col cols="8">
             <v-card width="925" style="padding: 10px;">
-              <nuxt />
+              <slot />
             </v-card>
           </v-col>
           <v-col cols="2">
@@ -77,27 +77,18 @@
     </client-only>
   </div>
 </template>
-<script>
-export default {
-  data() {
-    return {
-      persons: [
-        { name: "george", amount: "$30.00" },
-        { name: "sharkdnb", amount: "$30.00" },
-        { name: "davetherave_11", amount: "$25.00" },
-        { name: "remman4", amount: "$20.00" },
-        { name: "Industry", amount: "$29.00" },
-        { name: "disorderkc", amount: "$20.00" },
-        { name: "flapjack89", amount: "$15.00" }
-      ]
-    };
-  },
-  computed: {
-    currentYear() {
-      return new Date().getFullYear();
-    }
-  }
-};
+<script setup lang="ts">
+const persons = [
+  { name: "george", amount: "$30.00" },
+  { name: "sharkdnb", amount: "$30.00" },
+  { name: "davetherave_11", amount: "$25.00" },
+  { name: "remman4", amount: "$20.00" },
+  { name: "Industry", amount: "$29.00" },
+  { name: "disorderkc", amount: "$20.00" },
+  { name: "flapjack89", amount: "$15.00" }
+]
+
+const currentYear = computed(() => new Date().getFullYear())
 </script>
 <style>
 body {

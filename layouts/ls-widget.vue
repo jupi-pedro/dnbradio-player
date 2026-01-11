@@ -1,16 +1,11 @@
 <template>
   <div>
-    <client-only>
-      <nuxt />
-    </client-only>
+    <ClientOnly>
+      <slot />
+    </ClientOnly>
   </div>
 </template>
 
-<script>
-export default {
-  data() {
-    return {};
-  }
-};
+<script setup lang="ts">
 </script>
 <style></style>

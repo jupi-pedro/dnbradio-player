@@ -2,15 +2,15 @@
   <div>
     <v-toolbar
       color="transparent"
-      dark
+      theme="dark"
       flat
       style="margin:auto; opacity: 0.24;"
     >
-      <v-btn class="ml-3" @click="$router.go(-1)">
+      <v-btn class="ml-3" @click="router.go(-1)">
         <v-icon medium transparent>arrow_back</v-icon> Back
       </v-btn>
       <v-divider />
-      <v-btn class="ml-6" @click="$router.go(-1)">
+      <v-btn class="ml-6" @click="router.go(-1)">
         <v-icon medium transparent>mdi-radio</v-icon>
         <span class="pl-1">SWITCH TO RADIO</span>
       </v-btn>
@@ -32,10 +32,9 @@
           <v-divider style="margin-top: 20px;" />
         </div>
 
-        <template v-for="(item, index) in items">
+        <template v-for="(item, index) in items" :key="item.title">
           <v-list-item
-            :key="item.title"
-            @click="$router.push('/stations/1/podcast/' + item.id)"
+            @click="router.push('/stations/1/podcast/' + item.id)"
           >
             <v-list-item-avatar>
               <v-img :src="item.image"></v-img>
@@ -73,102 +72,84 @@
   </div>
 </template>
 
-<script>
-// init data
+<script setup lang="ts">
 import stations from "@/data/stations";
+import { useStationStore } from "@/stores/station";
+import { useRoute, useRouter } from "vue-router";
 
-// models
-import Station from "@/models/Station";
+const route = useRoute()
+const router = useRouter()
+const stationStore = useStationStore()
 
-// comp
-import StationSchedule from "~/components/StationSchedule";
-import Logo from "~/components/Logo.vue";
+const pagination = ref<any>(null)
+const items = ref<any[] | null>(null)
 
-export default {
-  async fetch() {
-    const stationsInitData = await stations();
-    Station.create({ data: stationsInitData });
-  },
-  components: {
-    Logo,
-    StationSchedule
-  },
-  data() {
-    return {
-      pagination: null,
-      items: null
-    };
-  },
-  async mounted() {
-    const stationsInitData = await stations();
-    Station.create({ data: stationsInitData });
-  },
-  methods: {
-    nextPage() {
-      this.$router.push(
-        "/stations/" + this.station.id + "/podcast?page=" + (this.page + 1)
-      );
-    },
-    prevPage() {
-      this.$router.push(
-        "/stations/" + this.station.id + "/podcast?page=" + (this.page - 1)
-      );
-    },
-    fetchData() {
-      if (this.station && this.station.podcast) {
-        this.$axios
-          .get(this.station.podcast.url + "?page=" + this.page)
-          .then(res => {
-            this.pagination = res.data.pagination;
-            this.items = res.data.data;
-          });
-      }
-    }
-  },
-  computed: {
-    numPages() {
-      if (this.pagination) {
-        return Number(this.pagination.total_pages).toLocaleString();
-      }
-    },
-    page() {
-      return this.$route.query.page ? this.$route.query.page : 1;
-    },
-    currenStationIndex() {
-      return this.$route.params && this.$route.params.stationId
-        ? this.$route.params.stationId
-        : 1;
-    },
-    stations() {
-      return Station.query().get();
-    },
-    station() {
-      let index = this.currenStationIndex || 1;
-      return this.stations.filter(
-        item => item.id == this.$route.params.stationId
-      )[0];
-    }
-  },
-  watch: {
-    page() {
-      this.fetchData();
-    }
-  },
-  mounted() {
-    this.$nextTick(() => {
-      if (this.station && this.station.podcast) {
-        this.$axios
-          .get(this.station.podcast.url + "?page=" + this.page)
-          .then(res => {
-            this.pagination = res.data.pagination;
-            this.items = res.data.data;
-          });
-      } else {
-        console.log("no podcast");
-      }
-    });
+const page = computed(() => {
+  return route.query.page ? Number(route.query.page) : 1;
+})
+
+const currenStationIndex = computed(() => {
+  return route.params?.stationId ? Number(route.params.stationId) : 1;
+})
+
+const stationsList = computed(() => {
+  return stationStore.stations;
+})
+
+const station = computed(() => {
+  const index = currenStationIndex.value || 1;
+  return stationsList.value.find(
+    item => item.id == Number(route.params.stationId)
+  );
+})
+
+const numPages = computed(() => {
+  if (pagination.value) {
+    return Number(pagination.value.total_pages).toLocaleString();
   }
-};
+  return 0
+})
+
+const nextPage = () => {
+  router.push(
+    "/stations/" + station.value?.id + "/podcast?page=" + (page.value + 1)
+  );
+}
+
+const prevPage = () => {
+  router.push(
+    "/stations/" + station.value?.id + "/podcast?page=" + (page.value - 1)
+  );
+}
+
+const fetchData = () => {
+  if (station.value && station.value.podcast) {
+    $fetch(station.value.podcast.url + "?page=" + page.value)
+      .then((res: any) => {
+        pagination.value = res.pagination;
+        items.value = res.data;
+      });
+  }
+}
+
+watch(page, () => {
+  fetchData();
+})
+
+onMounted(async () => {
+  if (stationStore.stations.length === 0) {
+    const stationsInitData = await stations();
+    stationStore.setStations(stationsInitData);
+  }
+  
+  nextTick(() => {
+    if (station.value && station.value.podcast) {
+      fetchData();
+    } else {
+      console.log("no podcast");
+    }
+  });
+})
 </script>
 <style>
 .v-autocomplete__content.v-menu__content .v-card {

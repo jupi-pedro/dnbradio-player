@@ -4,65 +4,57 @@
   </v-card>
 </template>
 
-<script>
-import Station from "@/models/Station";
+<script setup lang="ts">
 import StationDetails from "@/components/StationDetails";
-// models
-export default {
-  data() {
-    return {
-      loaded: false,
-      selectedCategory: 1
-    };
-  },
-  components: {
-    StationDetails
-  },
-  methods: {},
-  watch: {},
-  computed: {
-    windowHeight() {
-      if (process.client) {
-        return window.height;
-      }
-    },
-    windowWidth() {
-      if (process.client) {
-        return window.width;
-      }
-    },
-    currenStationIndex() {
-      if (this.stations) {
-        let station = this.stations.find(
-          item => item.pathname && item.pathname == this.$route.name
-        );
-        //console.log('station', station, this.stations, this.$route)
-        if (station) {
-          return station.id;
-        }
-      }
-      return this.$route.params && this.$route.params.stationId
-        ? this.$route.params.stationId
-        : 1;
-    },
-    stations() {
-      return Station.query().get();
-    },
-    station() {
-      let currenStationIndex = this.currenStationIndex
-        ? this.currenStationIndex
-        : 1;
-      return this.stations.filter(item => item.id == currenStationIndex)[0];
-    }
-  },
-  mounted() {
-    this.$nextTick(() => {
-      setTimeout(() => {
-        this.loaded = true;
-      }, 2000);
-    });
+import { useStationStore } from "@/stores/station";
+import { useRoute } from "vue-router";
+
+const route = useRoute();
+const stationStore = useStationStore();
+
+const loaded = ref(false);
+const selectedCategory = ref(1);
+
+const windowHeight = computed(() => {
+  if (process.client) {
+    return window.innerHeight;
   }
-};
+  return 0;
+});
+
+const windowWidth = computed(() => {
+  if (process.client) {
+    return window.innerWidth;
+  }
+  return 0;
+});
+
+const currenStationIndex = computed(() => {
+  if (stationStore.stations.length > 0) {
+    const station = stationStore.stations.find(
+      item => item.pathname && item.pathname === route.name
+    );
+    if (station) {
+      return station.id;
+    }
+  }
+  return route.params?.stationId ? Number(route.params.stationId) : 1;
+});
+
+const stations = computed(() => stationStore.stations);
+
+const station = computed(() => {
+  const currentIndex = currenStationIndex.value || 1;
+  return stations.value.find(item => item.id == currentIndex);
+});
+
+onMounted(() => {
+  nextTick(() => {
+    setTimeout(() => {
+      loaded.value = true;
+    }, 2000);
+  });
+});
 </script>
 
 <style scoped>

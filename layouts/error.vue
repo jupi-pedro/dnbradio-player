@@ -1,6 +1,6 @@
 <template>
-  <v-app dark>
-    <client-only>
+  <v-app theme="dark">
+    <ClientOnly>
       <h1 v-if="error.statusCode === 404">
         {{ pageNotFound }}
       </h1>
@@ -8,36 +8,30 @@
         {{ otherError }}
       </h1>
       <NuxtLink to="/">
-        {{ $route }}
         Home page
       </NuxtLink>
-    </client-only>
+    </ClientOnly>
   </v-app>
 </template>
 
-<script>
-export default {
-  layout: "empty",
-  props: {
-    error: {
-      type: Object,
-      default: null
-    }
-  },
-  head() {
-    const title =
-      this.error.statusCode === 404 ? this.pageNotFound : this.otherError;
-    return {
-      title
-    };
-  },
-  data() {
-    return {
-      pageNotFound: "404 Not Found",
-      otherError: "An error occurred"
-    };
+<script setup lang="ts">
+const props = defineProps<{
+  error: {
+    statusCode: number
+    message?: string
   }
-};
+}>()
+
+const pageNotFound = "404 Not Found"
+const otherError = "An error occurred"
+
+const title = computed(() => 
+  props.error.statusCode === 404 ? pageNotFound : otherError
+)
+
+useHead({
+  title: title.value
+})
 </script>
 
 <style scoped>

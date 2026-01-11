@@ -17,7 +17,7 @@
         style="margin:auto;
       text-align: center;"
         flat
-        dark
+        theme="dark"
         class="categoryCont transparent"
         v-show="1"
       >
@@ -92,11 +92,11 @@
                   style="cursor: pointer;"
                 >
                   <small>
-                    {{ item.start | localDay }}<br />
+                    {{ localDay(item.start) }}<br />
 
-                    {{ item.start | localTime }} - {{ item.end | localTime
+                    {{ localTime(item.start) }} - {{ localTime(item.end)
                     }}<br />
-                    <small>{{ item.start | localTZ }}</small>
+                    <small>{{ localTZ(item.start) }}</small>
                   </small>
                 </span>
               </div>
@@ -127,25 +127,36 @@
   </div>
 </template>
 
-<script>
-import Station from "@/models/Station";
+<script setup lang="ts">
 import moment from "moment-timezone";
-import Vue from "vue";
-Vue.filter("localTZ", function(value) {
+
+const props = defineProps<{
+  station: any
+}>()
+
+const route = useRoute()
+const { $dialog } = useNuxtApp()
+
+// Vue 3 doesn't have filters, use functions instead
+const localTZ = (value: any) => {
   if (value) {
     return moment(value)
       .local()
       .format("ZZ");
   }
-});
-Vue.filter("localTime", function(value) {
+  return ''
+}
+
+const localTime = (value: any) => {
   if (value) {
     return moment(value)
       .local()
       .format("HH:mm");
   }
-});
-Vue.filter("localTimeForceToday", function(value) {
+  return ''
+}
+
+const localTimeForceToday = (value: any) => {
   let time;
   if (value.indexOf("T") !== -1) {
     time = value.split("T")[1];
@@ -162,15 +173,19 @@ Vue.filter("localTimeForceToday", function(value) {
       return moment(day).format("HH:mm");
     }
   }
-});
-Vue.filter("localDay", function(value) {
+  return ''
+}
+
+const localDay = (value: any) => {
   if (value) {
     return moment(value)
       .local()
       .format("dddd");
   }
-});
-var abbrs = {
+  return ''
+}
+
+const abbrs: Record<string, string> = {
   EST: "Eastern Standard Time",
   EDT: "Eastern Daylight Time",
   CST: "Central Standard Time",
@@ -181,124 +196,120 @@ var abbrs = {
   PDT: "Pacific Daylight Time"
 };
 
-moment.fn.zoneName = function() {
+(moment.fn as any).zoneName = function() {
   var abbr = this.zoneAbbr();
   return abbrs[abbr] || abbr;
 };
-export default {
-  props: ["station"],
-  data() {
-    return {
-      selectedDay: null,
-      schedule: null,
-      loaded: false,
-      moment: moment
-    };
-  },
-  methods: {
-    showEvent(payload) {
-      let occurs = null;
-      switch (payload.occurs) {
-        case "even":
-        case "odd":
-          occurs = "every other " + moment(payload.start).format("dddd");
-          break;
-        case "last":
-          occurs =
-            "last " + moment(payload.start).format("dddd") + " of the month";
-          break;
-        case 1:
-          occurs =
-            "first " + moment(payload.start).format("dddd") + " of the month";
-          break;
-        case "weekly":
-          occurs = "every " + moment(payload.start).format("dddd");
-          break;
-      }
-      this.$dialog.confirm({
-        title: payload.host,
-        text:
-          "<strong>" +
-          payload.title +
-          "</strong>" +
-          "<br />" +
-          payload.location +
-          "<br />" +
-          moment(payload.start).format("HH:mm") +
-          " - " +
-          moment(payload.end).format("HH:mm") +
-          (occurs ? " (" + occurs + ")" : "") +
-          "<br /><br /><small>" +
-          "" +
-          payload.description +
-          "</small>" +
-          (payload.image
-            ? '<img src="' +
-              payload.image +
-              '" style="max-width: 400px;" />'
-            : ""),
-        fullscreen: false
-      });
-    },
-    chooseDay(val) {
-      this.selectedDay = val;
-    },
-    isDay(val) {
-      return this.selectedDay == val;
-    },
-    swipe(direction) {
-      switch (direction) {
-        case "left":
-          this.loadPrev();
-          break;
-        case "right":
-          this.loadNext();
-          break;
-      }
-    }
-  },
-  computed: {
-    currenStationIndex() {
-      return this.$route.params.id;
-    },
-    upcoming() {
-      if (!this.schedule) {
-        return null;
-      }
-      return this.schedule.filter(item => {
-        var end = moment
-          .utc({ hour: 23, minute: 59, second: 59 })
-          .add(6, "days");
-        var start = moment.utc({ hour: 0, minute: 0, second: 0 });
 
-        let ostart = moment.utc(item.start);
-        return (
-          ostart > start &&
-          ostart < end &&
-          ostart.local().day() == this.selectedDay
-        );
-      }).sort((a, b) => {
-        let a1 = moment.utc(a.start).toISOString();
-        let b1 = moment.utc(b.start).toISOString();
-        console.log('a1', a1, 'b1', b1);
-        return a1.localeCompare(b1);
-      });
-    }
-  },
-  mounted() {
-    this.selectedDay = moment().day();
-    if (this.station) {
-      this.$axios.get(this.station.schedule.url).then(res => {
-        this.schedule = res.data;
-      });
-    } else {
-      console.log("status is not defined yet");
-    }
-    this.$nextTick(() => {
-      this.loaded = true;
-    });
+const selectedDay = ref<number | null>(null)
+const schedule = ref<any[] | null>(null)
+const loaded = ref(false)
+
+const showEvent = (payload: any) => {
+  let occurs = null;
+  switch (payload.occurs) {
+    case "even":
+    case "odd":
+      occurs = "every other " + moment(payload.start).format("dddd");
+      break;
+    case "last":
+      occurs =
+        "last " + moment(payload.start).format("dddd") + " of the month";
+      break;
+    case 1:
+      occurs =
+        "first " + moment(payload.start).format("dddd") + " of the month";
+      break;
+    case "weekly":
+      occurs = "every " + moment(payload.start).format("dddd");
+      break;
   }
-};
+  $dialog.confirm({
+    title: payload.host,
+    text:
+      "<strong>" +
+      payload.title +
+      "</strong>" +
+      "<br />" +
+      payload.location +
+      "<br />" +
+      moment(payload.start).format("HH:mm") +
+      " - " +
+      moment(payload.end).format("HH:mm") +
+      (occurs ? " (" + occurs + ")" : "") +
+      "<br /><br /><small>" +
+      "" +
+      payload.description +
+      "</small>" +
+      (payload.image
+        ? '<img src="' +
+          payload.image +
+          '" style="max-width: 400px;" />'
+        : ""),
+    fullscreen: false
+  });
+}
+
+const chooseDay = (val: number) => {
+  selectedDay.value = val;
+}
+
+const isDay = (val: number) => {
+  return selectedDay.value == val;
+}
+
+const swipe = (direction: string) => {
+  switch (direction) {
+    case "left":
+      // loadPrev();
+      break;
+    case "right":
+      // loadNext();
+      break;
+  }
+}
+
+const currenStationIndex = computed(() => {
+  return route.params.id;
+})
+
+const upcoming = computed(() => {
+  if (!schedule.value) {
+    return null;
+  }
+  return schedule.value.filter(item => {
+    var end = moment
+      .utc({ hour: 23, minute: 59, second: 59 } as any)
+      .add(6, "days");
+    var start = moment.utc({ hour: 0, minute: 0, second: 0 } as any);
+
+    let ostart = moment.utc(item.start);
+    return (
+      ostart > start &&
+      ostart < end &&
+      ostart.local().day() == selectedDay.value
+    );
+  }).sort((a, b) => {
+    let a1 = moment.utc(a.start).toISOString();
+    let b1 = moment.utc(b.start).toISOString();
+    console.log('a1', a1, 'b1', b1);
+    return a1.localeCompare(b1);
+  });
+})
+
+onMounted(() => {
+  selectedDay.value = moment().day();
+  if (props.station) {
+    $fetch(props.station.schedule.url).then((res: any) => {
+      schedule.value = res;
+    });
+  } else {
+    console.log("status is not defined yet");
+  }
+  nextTick(() => {
+    loaded.value = true;
+  });
+})
 </script>
 
 <style>

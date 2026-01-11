@@ -33,24 +33,18 @@
   </div>
 </template>
 
-<script>
-export default {
-  components: {
-  },
-  data() {
-    return {
-      verified: null,
-    }
-  },
-  mounted() {
-    this.$axios.get('/api/verify/'+ this.$route.params.token).then((res) => {
-      this.verified = true
-    }).catch((err) => {
-      console.log(err.response.status)
-      this.verified = false
-    })
-  }
-}
+<script setup lang="ts">
+const route = useRoute()
+const verified = ref<boolean | null>(null)
+
+onMounted(() => {
+  $fetch('/api/verify/' + route.params.token).then(() => {
+    verified.value = true
+  }).catch((err: any) => {
+    console.log(err.response?.status)
+    verified.value = false
+  })
+})
 </script>
 
 <style>

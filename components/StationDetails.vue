@@ -1,13 +1,5 @@
 <template>
   <div v-show="loaded" class="overlap-screen">
-    <vue-headful
-      :title="pageTitle"
-      :description="pageDescription"
-      :keywords="pageKeywords"
-      :image="pageImage"
-      lang="en"
-      ref="headful"
-    />
     <div class="viscanvas-container" id="viscanvas-container">
       <canvas id="viscanvas"></canvas>
     </div>
@@ -20,7 +12,7 @@
       <v-toolbar
         min-width="300"
         color="transparent"
-        dark
+        theme="dark"
         flat
         class="user-v-toolbar"
       >
@@ -81,7 +73,7 @@
             @click="playIfStopped()"/>
           </div>
         <div style="flex-shrink: 0">
-          <v-card-text class="user-card-text" p0 :class="(windowHeight > windowWidth) ? 'big-font': 'normal-font'">
+          <v-card-text class="user-card-text" :class="(windowHeight > windowWidth) ? 'big-font': 'normal-font'">
             <p v-if="isOffline" class="offline-indicator indicator-text">DEVICE OFFLINE!</p>
             <p v-else-if="isLoading" class="indicator-text wait-indicator">Please Wait...</p>
             <p v-else-if="isStalled" class="offline-indicator indicator-text">{{ stalledMessage || 'Connection error. Please try again later.' }}</p>
@@ -99,7 +91,7 @@
             </p>
           </v-card-text>
 
-          <v-card-actions p0 fluid>
+          <v-card-actions fluid>
             <v-row justify="space-around" class="user-button-group">
               <v-btn icon @click="loadPrev(false)">
                 <v-icon medium dark :size="windowHeight > windowWidth ? 32: 24">skip_previous</v-icon>
@@ -270,247 +262,242 @@
   </div>
 </template>
 
-<script>
-import Station from "@/models/Station";
+<script setup lang="ts">
 import plankton from "@/vis/plankton";
 import stars from "@/vis/stars";
+import { usePlayerStore } from "@/stores/player";
+import { useStationStore } from "@/stores/station";
+import { useRoute, useRouter } from "vue-router";
 
-// if (process.BROWSER_BUILD && window) {
-//   plankton = require('@/components/plankton.js');
-// }
+const props = defineProps<{
+  station: any
+}>()
 
-export default {
-  props: ["station"],
-  data() {
-    return {
-      pageTitle: null,
-      pageDescription: null,
-      pageImage: null,
-      pageKeywords: null,
-      currentVis: null,
-      visOn: false,
-      npInterval: null,
-      bottomNav: "favorite",
-      shuffleOn: false,
-      likedOn: false,
-      showStationDetails: false,
-      loaded: false,
-      nowplaying: {
-        artist: null,
-        title: null,
-        listeners: null,
-        albumyear: null,
-        album: null,
-        song_type: null,
-        label: null,
-        streamer: null
-      },
-      isPlaying: false,
-      isLoading: false,
-      isStalled: false,
-      stalledInterval: null,
-      stalledMessage: "",
-      stalledRetriesRemaining: 90,
-      stalledRetriesOfflineRemaining: 225,
-    };
-  },
-  methods: {
-    playerToggleVisuals() {
-      this.$store.commit('player/TOGGLE_VISUALS');
-    },
-    attachListeners() {
-      console.log("attachListeners", [this.$sound], this.$media);
-      clearInterval(this.npInterval);
-      this.$sound.onloaded = () => {
-        this.isLoading = false;
-        console.log("loaded", this.$sound);
-      };
-      this.$sound.addEventListener("progress", (event) => {
-        if (this.stalledInterval) {
-          clearInterval(this.stalledInterval);
-        }
-      });
-      this.$sound.addEventListener("playing", (event) => {
-        if (this.stalledInterval) {
-          clearInterval(this.stalledInterval);
-        }
-      });
-      this.$sound.onplay = () => {
-        this.isLoading = false;
-        this.isPlaying = true;
-        this.stalledMessage = "";
-        this.stalledRetriesRemaining = 90;
-        this.stalledRetriesOfflineRemaining = 225;
-        if (this.stalledInterval) {
-          clearInterval(this.stalledInterval);
-        }
-        this.isStalled = false;
-        console.log("onplay called", this.$sound);
-        this.npInterval = setInterval(() => {
-          if (this.isOffline == false) {
-            this.fetchNowplaying();
-          }
-        }, 15000);
-      };
-      this.$sound.addEventListener("stalled", (err) => {
-        console.log("STALLED CAUGHT", err, this.$sound);
-      });
-      this.$sound.addEventListener("abort", (err) => {
-        console.log("ABORT CAUGHT", err, this.$sound);
-      });
-      this.$sound.addEventListener("emptied", (err) => {
-        console.log("EMPTIED CAUGHT", err, this.$sound);
-      });
-      this.$sound.addEventListener("suspend", (err) => {
-        if (this.stalledInterval) {
-          clearInterval(this.stalledInterval);
-        }
-        console.log("SUSPEND CAUGHT", err, this.$sound);
-      });
-      this.$sound.onerror;
-      this.$sound.addEventListener("error", (err) => {
-        console.log("ERROR CAUGHT", this.$sound);
-        if (!this.$sound) {
-          return;
-        }
-        this.isStalled = true;
-        // if (this.$sound) {
-        //   this.$sound.pause();
-        // }
-        if (this.stalledInterval) {
-          clearInterval(this.stalledInterval);
-        }
-        this.stalledInterval = setInterval(() => {
-          console.log("retrying playback...", this.stalledRetriesRemaining);
-          if (this.isOffline) {
-            console.log(
-              "skipping retry (device offline)",
-              this.stalledRetriesOfflineRemaining
-            );
-            this.stalledRetriesOfflineRemaining--;
-            if (this.stalledRetriesOfflineRemaining == 0) {
-              console.log("giving up");
-              clearInterval(this.stalledInterval);
-              this.stalledRetriesRemaining = 90;
-              this.stalledRetriesOfflineRemaining = 225;
-              if (this.$sound) {
-                this.$sound.pause();
-              }
-            }
-            return;
-          }
-          console.log(
-            "readystate",
-            this.$sound?.readyState,
-            "paused",
-            this.$sound?.paused,
-            "ended",
-            this.$sound?.ended,
-            "networkState",
-            this.$sound?.networkState,
-            "buffered",
-            this.$sound?.buffered
-          );
-          if (this.$sound?.readyState < 2) {
-            return;
-          }
-          this.stalledMessage = "Retrying in 3s...";
-          this.initPlayer();
-          // if (this.$sound) {
-          //   this.$sound.pause();
-          // }
-          setTimeout(() => {
-            if (!this.$sound) {
-              return;
-            }
-            console.log("running play()");
-            this.$sound.play();
-          }, 1500);
-          this.stalledRetriesRemaining--;
-          if (this.stalledRetriesRemaining == 0) {
-            console.log("giving up");
-            clearInterval(this.stalledInterval);
-            this.stalledRetriesRemaining = 90;
-            this.stalledRetriesOfflineRemaining = 225;
-            if (this.$sound) {
-              this.$sound.pause();
-            }
-          }
-        }, 3000);
-      });
-
-      if (navigator.mediaSession) {
-        navigator.mediaSession.setActionHandler("play", () => {
-          this.$sound.play();
-          this.isPlaying = true;
-        });
-        navigator.mediaSession.setActionHandler("pause", () => {
-          this.$sound.pause();
-          this.$sound.src = "";
-          this.isPlaying = false;
-        });
-        navigator.mediaSession.setActionHandler("previoustrack", () => {
-          this.loadPrev(true);
-          this.isPlaying = false;
-        });
-        navigator.mediaSession.setActionHandler("nexttrack", () => {
-          this.loadNext(true);
-          this.isPlaying = false;
-        });
-
-        // navigator.mediaSession.setActionHandler('seekbackward', function() {});
-        // navigator.mediaSession.setActionHandler('seekforward', function() {});
+const route = useRoute()
+const router = useRouter()
+const playerStore = usePlayerStore()
+const stationStore = useStationStore()
+const config = useRuntimeConfig()
+const { $device, $sound, $dialog } = useNuxtApp()
+const pageTitle = ref<string | null>(null)
+const pageDescription = ref<string | null>(null)
+const pageImage = ref<string | null>(null)
+const pageKeywords = ref<string | null>(null)
+const currentVis = ref<string | null>(null)
+const visOn = ref(false)
+const npInterval = ref<any>(null)
+const bottomNav = ref("favorite")
+const shuffleOn = ref(false)
+const likedOn = ref(false)
+const showStationDetails = ref(false)
+const loaded = ref(false)
+const nowplaying = ref({
+  artist: null,
+  title: null,
+  listeners: null,
+  albumyear: null,
+  album: null,
+  song_type: null,
+  label: null,
+  streamer: null
+})
+const isPlaying = ref(false)
+const isLoading = ref(false)
+const isStalled = ref(false)
+const stalledInterval = ref<any>(null)
+const stalledMessage = ref("")
+const stalledRetriesRemaining = ref(90)
+const stalledRetriesOfflineRemaining = ref(225)
+const playerToggleVisuals = () => {
+  playerStore.toggleVisuals()
+}
+const attachListeners = () => {
+  console.log("attachListeners", [$sound], (window as any).$media);
+  if (npInterval.value) {
+    clearInterval(npInterval.value);
+  }
+  $sound.onloaded = () => {
+    isLoading.value = false;
+    console.log("loaded", $sound);
+  };
+  $sound.addEventListener("progress", (event: any) => {
+    if (stalledInterval.value) {
+      clearInterval(stalledInterval.value);
+    }
+  });
+  $sound.addEventListener("playing", (event: any) => {
+    if (stalledInterval.value) {
+      clearInterval(stalledInterval.value);
+    }
+  });
+  $sound.onplay = () => {
+    isLoading.value = false;
+    isPlaying.value = true;
+    stalledMessage.value = "";
+    stalledRetriesRemaining.value = 90;
+    stalledRetriesOfflineRemaining.value = 225;
+    if (stalledInterval.value) {
+      clearInterval(stalledInterval.value);
+    }
+    isStalled.value = false;
+    console.log("onplay called", $sound);
+    npInterval.value = setInterval(() => {
+      if (!isOffline.value) {
+        fetchNowplaying();
       }
-    },
-    initStream() {
-      if (this.playerVisualsEnabled) {
-        console.log('restarting stars');
-        this.startStars(); // restart
-      } else {
-        this.stopStars();
-      }
-      if (this.$sound?.src == this.station?.streams?.[0]?.url) {
-        if (this.$sound?.paused) {
-          this.$sound.play();
+    }, 15000);
+  };
+  $sound.addEventListener("stalled", (err: any) => {
+    console.log("STALLED CAUGHT", err, $sound);
+  });
+  $sound.addEventListener("abort", (err: any) => {
+    console.log("ABORT CAUGHT", err, $sound);
+  });
+  $sound.addEventListener("emptied", (err: any) => {
+    console.log("EMPTIED CAUGHT", err, $sound);
+  });
+  $sound.addEventListener("suspend", (err: any) => {
+    if (stalledInterval.value) {
+      clearInterval(stalledInterval.value);
+    }
+    console.log("SUSPEND CAUGHT", err, $sound);
+  });
+  $sound.addEventListener("error", (err: any) => {
+    console.log("ERROR CAUGHT", $sound);
+    if (!$sound) {
+      return;
+    }
+    isStalled.value = true;
+    if (stalledInterval.value) {
+      clearInterval(stalledInterval.value);
+    }
+    stalledInterval.value = setInterval(() => {
+      console.log("retrying playback...", stalledRetriesRemaining.value);
+      if (isOffline.value) {
+        console.log(
+          "skipping retry (device offline)",
+          stalledRetriesOfflineRemaining.value
+        );
+        stalledRetriesOfflineRemaining.value--;
+        if (stalledRetriesOfflineRemaining.value == 0) {
+          console.log("giving up");
+          clearInterval(stalledInterval.value);
+          stalledRetriesRemaining.value = 90;
+          stalledRetriesOfflineRemaining.value = 225;
+          if ($sound) {
+            $sound.pause();
+          }
         }
-        console.log("stream already loaded");
-        this.isPlaying = true;
-        return true;
-      }
-      const streamUrl = this.station?.streams?.[0]?.url
-        ? this.station.streams[0].url
-        : null;
-      const streamMimeType = this.station?.streams?.[0]?.mimetype;
-      if (streamUrl) {
-        const unixtime = new Date().getTime();
-        this.$sound.src = streamUrl + '?' + unixtime.toString();
-        this.$sound.type = streamMimeType;
-        this.attachListeners();
-        return true;
-      } else {
-        return false;
-      }
-    },
-    async initPlayer(auto) {
-      if (this.$sound && this.paused == true && this.readyState == 4) {
-        this.play();
-        this.isLoading = false;
         return;
       }
-      this.isLoading = true;
+      console.log(
+        "readystate",
+        $sound?.readyState,
+        "paused",
+        $sound?.paused,
+        "ended",
+        $sound?.ended,
+        "networkState",
+        ($sound as any)?.networkState,
+        "buffered",
+        ($sound as any)?.buffered
+      );
+      if ($sound?.readyState < 2) {
+        return;
+      }
+      stalledMessage.value = "Retrying in 3s...";
+      initPlayer();
+      setTimeout(() => {
+        if (!$sound) {
+          return;
+        }
+        console.log("running play()");
+        $sound.play();
+      }, 1500);
+      stalledRetriesRemaining.value--;
+      if (stalledRetriesRemaining.value == 0) {
+        console.log("giving up");
+        clearInterval(stalledInterval.value);
+        stalledRetriesRemaining.value = 90;
+        stalledRetriesOfflineRemaining.value = 225;
+        if ($sound) {
+          $sound.pause();
+        }
+      }
+    }, 3000);
+  });
 
-      // fetch station info
-      this.fetchNowplaying()
-        .then(() => {
-          if (!this.station) {
-            throw "station not ready";
-          }
-          this.isLoading = false;
-        })
-        .catch((err) => {
-          console.log(err);
-        });
-    },
+  if (navigator.mediaSession) {
+    navigator.mediaSession.setActionHandler("play", () => {
+      $sound.play();
+      isPlaying.value = true;
+    });
+    navigator.mediaSession.setActionHandler("pause", () => {
+      $sound.pause();
+      $sound.src = "";
+      isPlaying.value = false;
+    });
+    navigator.mediaSession.setActionHandler("previoustrack", () => {
+      loadPrev(true);
+      isPlaying.value = false;
+    });
+    navigator.mediaSession.setActionHandler("nexttrack", () => {
+      loadNext(true);
+      isPlaying.value = false;
+    });
+  }
+}
+
+const initStream = () => {
+  if (playerVisualsEnabled.value) {
+    console.log('restarting stars');
+    startStars(); // restart
+  } else {
+    stopStars();
+  }
+  if ($sound?.src == props.station?.streams?.[0]?.url) {
+    if ($sound?.paused) {
+      $sound.play();
+    }
+    console.log("stream already loaded");
+    isPlaying.value = true;
+    return true;
+  }
+  const streamUrl = props.station?.streams?.[0]?.url
+    ? props.station.streams[0].url
+    : null;
+  const streamMimeType = props.station?.streams?.[0]?.mimetype;
+  if (streamUrl) {
+    const unixtime = new Date().getTime();
+    $sound.src = streamUrl + '?' + unixtime.toString();
+    $sound.type = streamMimeType;
+    attachListeners();
+    return true;
+  } else {
+    return false;
+  }
+}
+
+const initPlayer = async (auto?: boolean) => {
+  if ($sound && paused.value == true && readyState.value == 4) {
+    play();
+    isLoading.value = false;
+    return;
+  }
+  isLoading.value = true;
+
+  // fetch station info
+  fetchNowplaying()
+    .then(() => {
+      if (!props.station) {
+        throw "station not ready";
+      }
+      isLoading.value = false;
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+}
     togglePlankton() {
       if (this.visOn == false) {
         this.currentVis = "plankton";
@@ -558,540 +545,596 @@ export default {
         return true;
       }
     },
-    launchLink(link) {
-      this.$dialog
-        .confirm({
-          title: "Do you want to proceed?",
-          text:
-            "You are about to launch the following external link in a new browser tab:" +
-            "<br /><br />" +
-            link,
-          actions: {
-            false: "Cancel",
-            true: "YES, LAUNCH THE LINK.",
-          },
-        })
-        .then((res) => {
-          if (res) {
-            window.open(link, "_blank");
-          }
-        });
-    },
-    playIfStopped() {
-      if (!this.isPlaying) {
-        this.initPlayer();
+const launchLink = (link: string) => {
+  $dialog
+    .confirm({
+      title: "Do you want to proceed?",
+      text:
+        "You are about to launch the following external link in a new browser tab:" +
+        "<br /><br />" +
+        link,
+      actions: {
+        false: "Cancel",
+        true: "YES, LAUNCH THE LINK.",
+      },
+    })
+    .then((res: any) => {
+      if (res) {
+        window.open(link, "_blank");
       }
-    },
-    swipe(direction) {
-      switch (direction) {
-        case "left":
-          this.loadPrev();
-          break;
-        case "right":
-          this.loadNext();
-          break;
-      }
-    },
-    loadPodcast() {
-      clearInterval(this.npInterval);
-      if (this.$sound) {
-        this.$sound.pause();
-        this.$sound.src = null;
-      }
-      this.$sound = null;
-      //this.$dialog.confirm({text: 'This station\'s podcast is available on the station\'s website. We will be adding a podcast listening feature to this app soon, but in the meantime please visit the station\'s website to listen to the podcast there.'})
-      this.$router.push("/stations/" + this.currIndex + "/podcast");
-    },
-    loadPrev(auto) {
-      clearInterval(this.npInterval);
-      if (this.$sound) {
-        // this.$sound.pause();
-        // this.$sound.src = "";
-        // this.$sound = null;
-        //previousStation
-        const unixtime = new Date().getTime();
-        this.$sound.src = this.previousStation.streams[0].url + '?' + unixtime.toString();
-      }
-      // this.$sound = null;
-      if (this.shuffleOn) {
-        this.loadRandom();
-        return;
-      }
-      //this.$sound.stop();
-      this.$router.push("/stations/" + this.prevIndex);
-      this.$nextTick(() => {
-        this.pause();
-      });
-    },
-    loadNext(auto) {
-      console.log("loadNext");
-      clearInterval(this.npInterval);
-      if (this.$sound) {
-        const unixtime = new Date().getTime();
-        this.$sound.src = this.nextStation.streams[0].url + '?' + unixtime.toString();
-      }
-      if (this.shuffleOn) {
-        this.loadRandom();
-        return;
-      }
-      this.$router.push("/stations/" + this.nextIndex);
-      this.$nextTick(() => {
-        this.pause();
-      });
-    },
-    loadRandom() {
-      if (this.$sound) {
-        this.$sound.pause();
-        const unixtime = new Date().getTime();
-        this.$sound.src = this.previousStation.streams[0].url + '?' + unixtime.toString();
-      }
-      this.$router.push("/stations/" + this.randomIndex);
-    },
-    async play() {
-      //EventBus.$emit('stop-howler');
-      this.isPlaying = true;
-      if (this.$sound) {
-        this.$sound.play();
-        this.fetchNowplaying();
-        this.isLoading = false;
-      } else {
-        await this.initPlayer();
-      }
-    },
-    pause() {
-      this.isPlaying = false;
-      this.isLoading = false;
-      clearInterval(this.npInterval);
-      if (this.$sound) {
-        this.$sound.pause();
-      }
-    },
-    volUp() {
-      if (this.$sound.volume == 1) {
-        return;
-      }
-      let newVol = this.$sound.volume + 0.1;
-      newVol = newVol > 1 ? 1 : newVol;
-      this.$sound.volume = newVol;
-    },
-    volDown() {
-      if (this.$sound.volume == 0) {
-        return;
-      }
-      let newVol = this.$sound.volume - 0.1;
-      newVol = newVol < 0 ? 0 : newVol;
-      this.$sound.volume = newVol;
-    },
-    decodeHTMLEntities(text) {
-      var entities = [
-        ["amp", "&"],
-        ["apos", "'"],
-        ["#x27", "'"],
-        ["#x2F", "/"],
-        ["#39", "'"],
-        ["#47", "/"],
-        ["lt", "<"],
-        ["gt", ">"],
-        ["nbsp", " "],
-        ["quot", '"'],
-      ];
-
-      for (var i = 0, max = entities.length; i < max; ++i)
-        text = text.replace(
-          new RegExp("&" + entities[i][0] + ";", "g"),
-          entities[i][1]
-        );
-
-      return text;
-    },
-    fetchNowplaying() {
-      if (!this.station) {
-        return;
-      }
-      //return this.$axios.get('/api/now_playing?url=' + this.station.nowplaying_url.url, { progress: false }).then((res) => {
-      return this.$axios
-        .get("" + this.station.nowplaying_url.url, { progress: false })
-        .then((res) => {
-          switch (this.station.nowplaying_url.type) {
-            case 'azuracast':
-              const npdata = {
-                artist: res.data.now_playing.streamer_name ?? res.data.now_playing.song.artist,
-                title: res.data.now_playing.song.title,
-                listeners: res.data.listeners.current,
-                albumyear: null,
-                album: res.data.now_playing.song.album,
-                song_type: res.data.now_playing.streamer_name ? 'L' : 'S',
-                label: null
-              };
-              Object.assign(this.nowplaying, npdata);
-            break;
-            case "icecast":
-              this.nowplaying = res.data?.icestats?.source;
-              this.nowplaying.artist = this.nowplaying.title.split(" - ")[0];
-              this.nowplaying.title = this.nowplaying.title
-                .replace("(Original Title)", "")
-                .split(" - ")[1];
-              this.nowplaying.album = this.station.server_description;
-              this.nowplaying.listeners = this.nowplaying.listeners || 0;
-              this.pageTitle =
-                this.nowplaying.artist +
-                " - " +
-                this.nowplaying.title +
-                " [" +
-                this.nowplaying.listeners +
-                " tuned] - " +
-                this.station.name;
-              this.pageDescription = this.station.subtitle;
-              this.pageKeywords =
-                this.station.description + " " + this.station.subtitle;
-              this.pageImage = this.station.cover;
-              break;
-            case "sam":
-              this.nowplaying = res.data;
-              this.nowplaying.title = this.nowplaying.title.replace(
-                "(Original Title)",
-                ""
-              );
-              this.nowplaying.album = this.station.name;
-              this.pageTitle =
-                this.nowplaying.artist +
-                " - " +
-                this.nowplaying.title +
-                " [" +
-                this.nowplaying.listeners +
-                " tuned] - " +
-                this.station.name;
-              this.pageDescription = this.station.subtitle;
-              this.pageKeywords =
-                this.station.description + " " + this.station.subtitle;
-              this.pageImage = this.station.cover;
-              break;
-            case "jt":
-              this.nowplaying = res.data;
-              this.nowplaying.artist = this.nowplaying.h1;
-              this.nowplaying.title = this.nowplaying.h2;
-              this.nowplaying.listeners = this.nowplaying.listening;
-              this.nowplaying.albumyear = null;
-              this.nowplaying.album = this.station.name;
-              this.nowplaying.song_type = "";
-              this.nowplaying.label = null;
-              this.pageTitle = this.nowplaying.h1;
-              this.pageDescription = this.station.subtitle;
-              this.pageKeywords =
-                this.station.description + " " + this.station.subtitle;
-              this.pageImage = this.station.cover;
-              break;
-            case "shoutcast":
-              const d = res.data;
-              let parts = d.songtitle.split(" - ");
-              let artist = parts[0];
-              let title = parts[1];
-              let data = {
-                listeners: d.currentlisteners,
-                status: d.streamstatus,
-                peak: d.peaklisteners,
-                max: d.maxlisteners,
-                bitrate: d.bitrate,
-                artist: artist,
-                title: title,
-              };
-
-              this.nowplaying.artist = data.artist;
-              this.nowplaying.title = data.title.replace(
-                "(Original Title)",
-                ""
-              );
-              this.nowplaying.listeners = data.listeners;
-              this.nowplaying.albumyear = null;
-              this.nowplaying.album = this.station.name;
-              this.nowplaying.song_type = "";
-              this.nowplaying.label = null;
-              this.pageTitle =
-                this.nowplaying.artist +
-                " - " +
-                this.nowplaying.title +
-                " [" +
-                this.nowplaying.listeners +
-                " tuned] - " +
-                this.station.name;
-              this.pageDescription = this.station.subtitle;
-              this.pageKeywords =
-                this.station.description + " " + this.station.subtitle;
-              this.pageImage = this.station.cover;
-              break;
-            default:
-              this.nowplaying.artist = this.station.name;
-              this.nowplaying.title = this.station.subtitle;
-              this.nowplaying.listeners = null;
-              this.nowplaying.albumyear = null;
-              this.nowplaying.album = this.station.name;
-              this.nowplaying.song_type = "";
-              this.nowplaying.label = null;
-              this.pageTitle =
-                this.nowplaying.artist +
-                " - " +
-                this.nowplaying.title +
-                " - " +
-                this.station.name;
-              this.pageDescription = this.station.subtitle;
-              this.pageKeywords =
-                this.station.description + " " + this.station.subtitle;
-              this.pageImage = this.station.cover;
-              break;
-          }
-
-          // navigator
-          if (navigator && navigator.mediaSession) {
-            navigator.mediaSession.metadata = new MediaMetadata({
-              title: this.nowplaying.title,
-              artist: this.nowplaying.artist,
-              // album: this.nowplaying.album,
-              artwork: [
-                {
-                  src:
-                    "https://res.cloudinary.com/dgp7z9vkg/image/fetch/c_scale,w_96/v1586048258/" +
-                    this.pageImage,
-                  sizes: "96x96",
-                  type: "image/png",
-                },
-                {
-                  src:
-                    "https://res.cloudinary.com/dgp7z9vkg/image/fetch/c_scale,w_128/v1586048258/" +
-                    this.pageImage,
-                  sizes: "128x128",
-                  type: "image/png",
-                },
-                {
-                  src:
-                    "https://res.cloudinary.com/dgp7z9vkg/image/fetch/c_scale,w_192/v1586048258/" +
-                    this.pageImage,
-                  sizes: "192x192",
-                  type: "image/png",
-                },
-                {
-                  src:
-                    "https://res.cloudinary.com/dgp7z9vkg/image/fetch/c_scale,w_256/v1586048258/" +
-                    this.pageImage,
-                  sizes: "256x256",
-                  type: "image/png",
-                },
-                {
-                  src:
-                    "https://res.cloudinary.com/dgp7z9vkg/image/fetch/c_scale,w_348/v1586048258/" +
-                    this.pageImage,
-                  sizes: "384x384",
-                  type: "image/png",
-                },
-                {
-                  src:
-                    "https://res.cloudinary.com/dgp7z9vkg/image/fetch/c_scale,w_512/v1586048258/" +
-                    this.pageImage,
-                  sizes: "512x512",
-                  type: "image/png",
-                },
-              ],
-            });
-          }
-        })
-      .catch((err) => {
-        console.log("cannot fetch nowplaying", err.message);
-      });
-    },
-    startStars(){
-      this.currentVis = "stars";
-      var element = document.getElementById("viscanvas");
-      element.style.display = "block";
-      stars();
-    },
-    stopStars() {
-      this.currentVis = "";
-      var element = document.getElementById("viscanvas");
-      element.style.display = "none";
-      if (window.animId) {
-        cancelAnimationFrame(window.animId);
-      }
-    }
-  },
-  computed: {
-    APP_BASE_URL() {
-      return this.$config.APP_BASE_URL;
-    },
-    userAgent() {
-      if (!navigator) return "";
-      if (!process.client) return "";
-      return navigator.userAgent;
-    },
-    playerVisualsEnabled() {
-      return this.$store.state.player.visualsEnabled;
-    },
-    stations() {
-      return Station.query().get();
-    },
-    nextStationIndex() {
-      let index = this.stations.findIndex(
-        (station) => station.id === this.station.id
-      );
-      if (index === this.stations.length - 1) {
-        return 0;
-      } else {
-        return index + 1;
-      }
-    },
-    nextStation() {
-      return this.stations[this.nextStationIndex];
-    },
-    previousStationIndex() {
-      let index = this.stations.findIndex(
-        (station) => station.id === this.station.id
-      );
-      if (index === 0) {
-        return this.stations.length - 1;
-      } else {
-        return index - 1;
-      }
-    },
-    previousStation() {
-      return this.stations[this.previousStationIndex];
-    },
-    APP_BRANCH() {
-      return this.$config.APP_BRANCH || "main";
-    },
-    APP_VERSION() {
-      return this.$config.APP_VERSION;
-    },
-    isOffline() {
-      return this.$nuxt.isOffline;
-    },
-    windowHeight() {
-      if (process.client) {
-        return window.innerHeight;
-      }
-    },
-    windowWidth() {
-      if (process.client) {
-        return window.innerWidth;
-      }
-    },
-    paused() {
-      return this.$sound.paused;
-    },
-    // readyState
-    //  Type	Description
-    // Number	Represents the ready state of the audio/video element:
-    // 0 = HAVE_NOTHING - no information whether or not the audio/video is ready
-    // 1 = HAVE_METADATA - metadata for the audio/video is ready
-    // 2 = HAVE_CURRENT_DATA - data for the current playback position is available, but not enough data to play next frame/millisecond
-    // 3 = HAVE_FUTURE_DATA - data for the current and at least the next frame is available
-    // 4 = HAVE_ENOUGH_DATA - enough data available to start playing
-    readyState() {
-      return this.$sound.readyState;
-    },
-    currIndex() {
-      return this.$route.params.stationId ? this.$route.params.stationId : 1;
-    },
-    randomIndex() {
-      let stations = Station.query().get();
-      let currIndex = stations.find((item) => item.id == this.station.id).id;
-      let rand = null;
-      while (rand === null || rand === currIndex) {
-        rand = Math.round(Math.random() * stations.length);
-      }
-      return rand;
-    },
-    nextIndex() {
-      let stations = Station.query().get();
-      let nextIndex =
-        stations.find((item) => item.id == this.station.id).id + 1;
-      if (nextIndex > stations.length) {
-        nextIndex = 1;
-      }
-      return nextIndex;
-    },
-    prevIndex() {
-      let stations = Station.query().get();
-      let prevIndex =
-        stations.find((item) => item.id == this.station.id).id - 1;
-      if (prevIndex < 1) {
-        prevIndex = stations.length;
-      }
-      return prevIndex;
-    },
-    cover() {
-      return this.station.cover || "https://picsum.photos/350/165?random";
-    },
-    artist() {
-      return this.nowplaying ? this.nowplaying.artist : null;
-    },
-    title() {
-      return this.nowplaying ? this.nowplaying.title : null;
-    },
-    albumyear() {
-      return this.nowplaying ? this.nowplaying.album_year : null;
-    },
-    song_type() {
-      return this.nowplaying ? this.nowplaying.song_type : null;
-    },
-    label() {
-      return this.nowplaying ? this.nowplaying.label : null;
-    },
-    listeners() {
-      return this.nowplaying ? this.nowplaying.listeners : null;
-    },
-    streamurl() {
-      return this.station?.streams?.[0].url;
-    },
-  },
-  mounted() {
-    // if fresh load then startStars
-    console.log('this.$route?.from?.name', this.$route)
-    if (this.$store.state.player.initialLoad) {
-      // setTimeout(()=> {
-      //   this.playerToggleVisuals();
-      // }, 800);
-    }
-    this.$store.dispatch("player/SET_INITIAL_LOAD", false);
-    console.log("sound readyState", this.$sound.readyState);
-    if (
-      this.$sound?.readyState > 0 &&
-      this.$sound?.paused == false &&
-      this.$sound?.ended == false
-    ) {
-      this.isPlaying = true;
-    }
-    this.pageTitle =
-      "dnbradio.com : All flavors of dnb from dj's across the globe! [dnbradio.com [all flavors]] - dnbradio.com";
-    this.pageDescription = "All flavors of dnb from dj's across the globe!";
-    this.pageImage = "https://dnbradio.com/img/logotags.png";
-    this.pageKeywords = "dnbradio.com all flavors";
-    // navigator
-    this.$nextTick(() => {
-      this.loaded = true;
-      // this.initStream();
-      this.fetchNowplaying();
-
-      // try again if empty
-      setTimeout(() => {
-        // no artist or title
-        if (!this.nowplaying.artist || !this.nowplaying.title) {
-          this.fetchNowplaying();
-        }
-      }, 2000);
     });
-  },
-  watch: {
-    playerVisualsEnabled(val) {
-      if (val===false) {
-        this.stopStars();
-      } else {
-        this.startStars();
+}
+
+const playIfStopped = () => {
+  if (!isPlaying.value) {
+    initPlayer();
+  }
+}
+
+const swipe = (direction: string) => {
+  switch (direction) {
+    case "left":
+      loadPrev();
+      break;
+    case "right":
+      loadNext();
+      break;
+  }
+}
+
+const loadPodcast = () => {
+  if (npInterval.value) {
+    clearInterval(npInterval.value);
+  }
+  if ($sound) {
+    $sound.pause();
+    $sound.src = null;
+  }
+  router.push("/stations/" + currIndex.value + "/podcast");
+}
+
+const loadPrev = (auto?: boolean) => {
+  if (npInterval.value) {
+    clearInterval(npInterval.value);
+  }
+  if ($sound) {
+    const unixtime = new Date().getTime();
+    $sound.src = previousStation.value.streams[0].url + '?' + unixtime.toString();
+  }
+  if (shuffleOn.value) {
+    loadRandom();
+    return;
+  }
+  router.push("/stations/" + prevIndex.value);
+  nextTick(() => {
+    pause();
+  });
+}
+
+const loadNext = (auto?: boolean) => {
+  console.log("loadNext");
+  if (npInterval.value) {
+    clearInterval(npInterval.value);
+  }
+  if ($sound) {
+    const unixtime = new Date().getTime();
+    $sound.src = nextStation.value.streams[0].url + '?' + unixtime.toString();
+  }
+  if (shuffleOn.value) {
+    loadRandom();
+    return;
+  }
+  router.push("/stations/" + nextIndex.value);
+  nextTick(() => {
+    pause();
+  });
+}
+
+const loadRandom = () => {
+  if ($sound) {
+    $sound.pause();
+    const unixtime = new Date().getTime();
+    $sound.src = previousStation.value.streams[0].url + '?' + unixtime.toString();
+  }
+  router.push("/stations/" + randomIndex.value);
+}
+
+const play = async () => {
+  isPlaying.value = true;
+  if ($sound) {
+    $sound.play();
+    fetchNowplaying();
+    isLoading.value = false;
+  } else {
+    await initPlayer();
+  }
+}
+
+const pause = () => {
+  isPlaying.value = false;
+  isLoading.value = false;
+  if (npInterval.value) {
+    clearInterval(npInterval.value);
+  }
+  if ($sound) {
+    $sound.pause();
+  }
+}
+
+const volUp = () => {
+  if ($sound.volume == 1) {
+    return;
+  }
+  let newVol = $sound.volume + 0.1;
+  newVol = newVol > 1 ? 1 : newVol;
+  $sound.volume = newVol;
+}
+
+const volDown = () => {
+  if ($sound.volume == 0) {
+    return;
+  }
+  let newVol = $sound.volume - 0.1;
+  newVol = newVol < 0 ? 0 : newVol;
+  $sound.volume = newVol;
+}
+const decodeHTMLEntities = (text: string) => {
+  var entities = [
+    ["amp", "&"],
+    ["apos", "'"],
+    ["#x27", "'"],
+    ["#x2F", "/"],
+    ["#39", "'"],
+    ["#47", "/"],
+    ["lt", "<"],
+    ["gt", ">"],
+    ["nbsp", " "],
+    ["quot", '"'],
+  ];
+
+  for (var i = 0, max = entities.length; i < max; ++i)
+    text = text.replace(
+      new RegExp("&" + entities[i][0] + ";", "g"),
+      entities[i][1]
+    );
+
+  return text;
+}
+
+const fetchNowplaying = () => {
+  if (!props.station) {
+    return Promise.resolve();
+  }
+  return $fetch(props.station.nowplaying_url.url)
+    .then((res: any) => {
+      switch (props.station.nowplaying_url.type) {
+        case 'azuracast':
+          const npdata = {
+            artist: res.now_playing.streamer_name ?? res.now_playing.song.artist,
+            title: res.now_playing.song.title,
+            listeners: res.listeners.current,
+            albumyear: null,
+            album: res.now_playing.song.album,
+            song_type: res.now_playing.streamer_name ? 'L' : 'S',
+            label: null
+          };
+          Object.assign(nowplaying.value, npdata);
+        break;
+        case "icecast":
+          nowplaying.value = res?.icestats?.source;
+          nowplaying.value.artist = nowplaying.value.title.split(" - ")[0];
+          nowplaying.value.title = nowplaying.value.title
+            .replace("(Original Title)", "")
+            .split(" - ")[1];
+          nowplaying.value.album = props.station.server_description;
+          nowplaying.value.listeners = nowplaying.value.listeners || 0;
+          pageTitle.value =
+            nowplaying.value.artist +
+            " - " +
+            nowplaying.value.title +
+            " [" +
+            nowplaying.value.listeners +
+            " tuned] - " +
+            props.station.name;
+          pageDescription.value = props.station.subtitle;
+          pageKeywords.value =
+            props.station.description + " " + props.station.subtitle;
+          pageImage.value = props.station.cover;
+          break;
+        case "sam":
+          nowplaying.value = res;
+          nowplaying.value.title = nowplaying.value.title.replace(
+            "(Original Title)",
+            ""
+          );
+          nowplaying.value.album = props.station.name;
+          pageTitle.value =
+            nowplaying.value.artist +
+            " - " +
+            nowplaying.value.title +
+            " [" +
+            nowplaying.value.listeners +
+            " tuned] - " +
+            props.station.name;
+          pageDescription.value = props.station.subtitle;
+          pageKeywords.value =
+            props.station.description + " " + props.station.subtitle;
+          pageImage.value = props.station.cover;
+          break;
+        case "jt":
+          nowplaying.value = res;
+          nowplaying.value.artist = nowplaying.value.h1;
+          nowplaying.value.title = nowplaying.value.h2;
+          nowplaying.value.listeners = nowplaying.value.listening;
+          nowplaying.value.albumyear = null;
+          nowplaying.value.album = props.station.name;
+          nowplaying.value.song_type = "";
+          nowplaying.value.label = null;
+          pageTitle.value = nowplaying.value.h1;
+          pageDescription.value = props.station.subtitle;
+          pageKeywords.value =
+            props.station.description + " " + props.station.subtitle;
+          pageImage.value = props.station.cover;
+          break;
+        case "shoutcast":
+          const d = res;
+          let parts = d.songtitle.split(" - ");
+          let artist = parts[0];
+          let title = parts[1];
+          let data = {
+            listeners: d.currentlisteners,
+            status: d.streamstatus,
+            peak: d.peaklisteners,
+            max: d.maxlisteners,
+            bitrate: d.bitrate,
+            artist: artist,
+            title: title,
+          };
+
+          nowplaying.value.artist = data.artist;
+          nowplaying.value.title = data.title.replace(
+            "(Original Title)",
+            ""
+          );
+          nowplaying.value.listeners = data.listeners;
+          nowplaying.value.albumyear = null;
+          nowplaying.value.album = props.station.name;
+          nowplaying.value.song_type = "";
+          nowplaying.value.label = null;
+          pageTitle.value =
+            nowplaying.value.artist +
+            " - " +
+            nowplaying.value.title +
+            " [" +
+            nowplaying.value.listeners +
+            " tuned] - " +
+            props.station.name;
+          pageDescription.value = props.station.subtitle;
+          pageKeywords.value =
+            props.station.description + " " + props.station.subtitle;
+          pageImage.value = props.station.cover;
+          break;
+        default:
+          nowplaying.value.artist = props.station.name;
+          nowplaying.value.title = props.station.subtitle;
+          nowplaying.value.listeners = null;
+          nowplaying.value.albumyear = null;
+          nowplaying.value.album = props.station.name;
+          nowplaying.value.song_type = "";
+          nowplaying.value.label = null;
+          pageTitle.value =
+            nowplaying.value.artist +
+            " - " +
+            nowplaying.value.title +
+            " - " +
+            props.station.name;
+          pageDescription.value = props.station.subtitle;
+          pageKeywords.value =
+            props.station.description + " " + props.station.subtitle;
+          pageImage.value = props.station.cover;
+          break;
       }
+
+      // navigator
+      if (navigator && navigator.mediaSession) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: nowplaying.value.title,
+          artist: nowplaying.value.artist,
+          artwork: [
+            {
+              src:
+                "https://res.cloudinary.com/dgp7z9vkg/image/fetch/c_scale,w_96/v1586048258/" +
+                pageImage.value,
+              sizes: "96x96",
+              type: "image/png",
+            },
+            {
+              src:
+                "https://res.cloudinary.com/dgp7z9vkg/image/fetch/c_scale,w_128/v1586048258/" +
+                pageImage.value,
+              sizes: "128x128",
+              type: "image/png",
+            },
+            {
+              src:
+                "https://res.cloudinary.com/dgp7z9vkg/image/fetch/c_scale,w_192/v1586048258/" +
+                pageImage.value,
+              sizes: "192x192",
+              type: "image/png",
+            },
+            {
+              src:
+                "https://res.cloudinary.com/dgp7z9vkg/image/fetch/c_scale,w_256/v1586048258/" +
+                pageImage.value,
+              sizes: "256x256",
+              type: "image/png",
+            },
+            {
+              src:
+                "https://res.cloudinary.com/dgp7z9vkg/image/fetch/c_scale,w_348/v1586048258/" +
+                pageImage.value,
+              sizes: "384x384",
+              type: "image/png",
+            },
+            {
+              src:
+                "https://res.cloudinary.com/dgp7z9vkg/image/fetch/c_scale,w_512/v1586048258/" +
+                pageImage.value,
+              sizes: "512x512",
+              type: "image/png",
+            },
+          ],
+        });
+      }
+    })
+    .catch((err: any) => {
+      console.log("cannot fetch nowplaying", err.message);
+    });
+}
+
+const startStars = () => {
+  currentVis.value = "stars";
+  var element = document.getElementById("viscanvas");
+  if (element) {
+    element.style.display = "block";
+  }
+  stars();
+}
+
+const stopStars = () => {
+  currentVis.value = "";
+  var element = document.getElementById("viscanvas");
+  if (element) {
+    element.style.display = "none";
+  }
+  if ((window as any).animId) {
+    cancelAnimationFrame((window as any).animId);
+  }
+}
+const APP_BASE_URL = computed(() => {
+  return config.public.APP_BASE_URL;
+})
+
+const userAgent = computed(() => {
+  if (!navigator) return "";
+  if (!process.client) return "";
+  return navigator.userAgent;
+})
+
+const playerVisualsEnabled = computed(() => {
+  return playerStore.visualsEnabled;
+})
+
+const stations = computed(() => {
+  return stationStore.stations;
+})
+
+const nextStationIndex = computed(() => {
+  let index = stations.value.findIndex(
+    (station) => station.id === props.station.id
+  );
+  if (index === stations.value.length - 1) {
+    return 0;
+  } else {
+    return index + 1;
+  }
+})
+
+const nextStation = computed(() => {
+  return stations.value[nextStationIndex.value];
+})
+
+const previousStationIndex = computed(() => {
+  let index = stations.value.findIndex(
+    (station) => station.id === props.station.id
+  );
+  if (index === 0) {
+    return stations.value.length - 1;
+  } else {
+    return index - 1;
+  }
+})
+
+const previousStation = computed(() => {
+  return stations.value[previousStationIndex.value];
+})
+
+const APP_BRANCH = computed(() => {
+  return config.public.APP_BRANCH || "main";
+})
+
+const APP_VERSION = computed(() => {
+  return config.public.APP_VERSION;
+})
+
+const isOffline = computed(() => {
+  // Nuxt 3 doesn't have $nuxt.isOffline, use navigator.onLine
+  if (process.client) {
+    return !navigator.onLine;
+  }
+  return false;
+})
+
+const windowHeight = computed(() => {
+  if (process.client) {
+    return window.innerHeight;
+  }
+  return 0;
+})
+
+const windowWidth = computed(() => {
+  if (process.client) {
+    return window.innerWidth;
+  }
+  return 0;
+})
+
+const paused = computed(() => {
+  return $sound?.paused || false;
+})
+
+const readyState = computed(() => {
+  return $sound?.readyState || 0;
+})
+
+const currIndex = computed(() => {
+  return route.params.stationId ? Number(route.params.stationId) : 1;
+})
+
+const randomIndex = computed(() => {
+  let stationsList = stationStore.stations;
+  let currIdx = stationsList.find((item) => item.id == props.station.id)?.id;
+  if (!currIdx) return 1;
+  let rand = null;
+  while (rand === null || rand === currIdx) {
+    rand = Math.round(Math.random() * stationsList.length);
+  }
+  return rand;
+})
+
+const nextIndex = computed(() => {
+  let stationsList = stationStore.stations;
+  let currIdx = stationsList.find((item) => item.id == props.station.id)?.id;
+  if (!currIdx) return 1;
+  let nextIdx = currIdx + 1;
+  if (nextIdx > stationsList.length) {
+    nextIdx = 1;
+  }
+  return nextIdx;
+})
+
+const prevIndex = computed(() => {
+  let stationsList = stationStore.stations;
+  let currIdx = stationsList.find((item) => item.id == props.station.id)?.id;
+  if (!currIdx) return 1;
+  let prevIdx = currIdx - 1;
+  if (prevIdx < 1) {
+    prevIdx = stationsList.length;
+  }
+  return prevIdx;
+})
+
+const cover = computed(() => {
+  return props.station?.cover || "https://picsum.photos/350/165?random";
+})
+
+const artist = computed(() => {
+  return nowplaying.value ? nowplaying.value.artist : null;
+})
+
+const title = computed(() => {
+  return nowplaying.value ? nowplaying.value.title : null;
+})
+
+const albumyear = computed(() => {
+  return nowplaying.value ? nowplaying.value.album_year : null;
+})
+
+const song_type = computed(() => {
+  return nowplaying.value ? nowplaying.value.song_type : null;
+})
+
+const label = computed(() => {
+  return nowplaying.value ? nowplaying.value.label : null;
+})
+
+const listeners = computed(() => {
+  return nowplaying.value ? nowplaying.value.listeners : null;
+})
+
+const streamurl = computed(() => {
+  return props.station?.streams?.[0]?.url;
+})
+
+// Use useHead instead of vue-headful
+useHead({
+  title: () => pageTitle.value || 'dnbradio.com',
+  meta: [
+    {
+      name: 'description',
+      content: () => pageDescription.value || ''
     },
-    streamurl(val) {
-      console.log("streamurl changed", val);
-      this.initStream();
+    {
+      name: 'keywords',
+      content: () => pageKeywords.value || ''
     },
-  },
-};
+    {
+      property: 'og:image',
+      content: () => pageImage.value || ''
+    }
+  ]
+})
+
+onMounted(() => {
+  console.log('route', route)
+  if (playerStore.initialLoad) {
+    // setTimeout(()=> {
+    //   playerToggleVisuals();
+    // }, 800);
+  }
+  playerStore.setInitialLoad(false);
+  console.log("sound readyState", $sound?.readyState);
+  if (
+    $sound?.readyState > 0 &&
+    $sound?.paused == false &&
+    ($sound as any)?.ended == false
+  ) {
+    isPlaying.value = true;
+  }
+  pageTitle.value =
+    "dnbradio.com : All flavors of dnb from dj's across the globe! [dnbradio.com [all flavors]] - dnbradio.com";
+  pageDescription.value = "All flavors of dnb from dj's across the globe!";
+  pageImage.value = "https://dnbradio.com/img/logotags.png";
+  pageKeywords.value = "dnbradio.com all flavors";
+  // navigator
+  nextTick(() => {
+    loaded.value = true;
+    // initStream();
+    fetchNowplaying();
+
+    // try again if empty
+    setTimeout(() => {
+      // no artist or title
+      if (!nowplaying.value.artist || !nowplaying.value.title) {
+        fetchNowplaying();
+      }
+    }, 2000);
+  });
+})
+
+watch(playerVisualsEnabled, (val) => {
+  if (val === false) {
+    stopStars();
+  } else {
+    startStars();
+  }
+})
+
+watch(streamurl, (val) => {
+  console.log("streamurl changed", val);
+  initStream();
+})
+</script>
 </script>
 
 <style>

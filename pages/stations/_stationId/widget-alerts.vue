@@ -4,42 +4,33 @@
 </div>
 </template>
 
-<script>
-
-// init data
+<script setup lang="ts">
 import stations from '@/data/stations'
+import { useStationStore } from "@/stores/station";
 
-// models
-import Station from '@/models/Station'
+definePageMeta({
+  layout: 'ls-widget'
+})
 
-// comp
-import StationList from '~/components/StationList'
-import Logo from '~/components/Logo.vue'
+const stationStore = useStationStore()
 
-export default {
-  layout: 'ls-widget',
-  components: {
-    Logo,
-    StationList
-  },
-  data() {
-    return {
-      data: []
-    }
-  },
-  mounted() {
-    this.$axios.get('https://dnbradio.com/swcontrib/SWDnbRadio/assets/pages/alerts.php').then((res) => {
-      this.data = res.data
-    })
-  },
-  computed: {
-    filteredData() {
-      return this.data.slice(this.data.length-22, this.data.length+22).map((item) => {
-        return item
-      })
-    }
+const data = ref<any[]>([])
+
+const filteredData = computed(() => {
+  return data.value.slice(data.value.length-22, data.value.length+22).map((item: any) => {
+    return item
+  })
+})
+
+onMounted(async () => {
+  if (stationStore.stations.length === 0) {
+    const stationsInitData = await stations()
+    stationStore.setStations(stationsInitData)
   }
-}
+  $fetch('https://dnbradio.com/swcontrib/SWDnbRadio/assets/pages/alerts.php').then((res: any) => {
+    data.value = res
+  })
+})
 </script>
 <style>
 </style>

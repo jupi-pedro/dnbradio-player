@@ -4,59 +4,44 @@
   </div>
 </template>
 
-<script>
-
-// init data
+<script setup lang="ts">
 import stations from '@/data/stations'
+import { useStationStore } from "@/stores/station";
+import { useRoute } from "vue-router";
 
-// models
-import Station from '@/models/Station'
+definePageMeta({
+  layout: 'ls-widget'
+})
 
-// comp
-import StationList from '~/components/StationList'
-import Logo from '~/components/Logo.vue'
+const route = useRoute()
+const stationStore = useStationStore()
 
-export default {
-  layout: 'ls-widget',
-  components: {
-    Logo,
-    StationList
-  },
-  async fetch () {
-    const stationsInitData = await stations()
-    Station.create({ data: stationsInitData })
-  },
-  data() {
-    return {
-      marquees: [
-        {
-          text: 'EST. 2003 - PAYPAL.ME/RADIODNB - PATREON.COM/DNBRADIO - DNBRADIO.COM/PLAYER - DNBRADIO.COM/SCHEDULE'
-        }
-      ]
-    }
-  },
-  methods: {
-  },
-  computed: {
-    currenStationIndex() {
-      return (this.$route.params && this.$route.params.stationId) ? this.$route.params.stationId : 1
-    },
-    stations() {
-      return Station.query().get()
-    },
-    station() {
-      let index = (this.currenStationIndex) ? this.currenStationIndex : 1
-      return this.stations.filter((item) => item.id == index)[0]
-    },
-  },
-  async mounted() {
-    const stationsInitData = await stations()
-    Station.create({ data: stationsInitData })
+const marquees = ref([
+  {
+    text: 'EST. 2003 - PAYPAL.ME/RADIODNB - PATREON.COM/DNBRADIO - DNBRADIO.COM/PLAYER - DNBRADIO.COM/SCHEDULE'
   }
-}
+])
+
+const currenStationIndex = computed(() => {
+  return route.params?.stationId ? Number(route.params.stationId) : 1
+})
+
+const stationsList = computed(() => {
+  return stationStore.stations
+})
+
+const station = computed(() => {
+  const index = currenStationIndex.value || 1
+  return stationsList.value.find((item) => item.id == index)
+})
+
+onMounted(async () => {
+  if (stationStore.stations.length === 0) {
+    const stationsInitData = await stations()
+    stationStore.setStations(stationsInitData)
+  }
+})
 </script>
 <style scoped>
   .marquee {  font-family: 'Roboto', sans-serif;  }
-</style>
-<style style="text/css">
 </style>

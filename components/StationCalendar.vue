@@ -28,32 +28,39 @@
   </div>
 </template>
 
-<script>
-import Station from '@/models/Station'
+<script setup lang="ts">
 import moment from 'moment-timezone'
-import Vue from 'vue'
-Vue.filter('localTZ', function(value) {
+import { useRoute } from 'vue-router'
+
+const props = defineProps<{
+  station: any
+}>()
+
+const route = useRoute()
+const calendar = ref(null)
+
+// Vue 3 doesn't have filters, use computed or methods instead
+const localTZ = (value: any) => {
   if (value) {
     return moment(value).format('ZZ')
   }
-});
-Vue.filter('localTime', function(value) {
+  return ''
+}
+
+const localTime = (value: any) => {
   if (value) {
     return moment(value).format('HHmm')
   }
-});
-// Vue.filter('localTimeForceToday', function(value) {
-//   if (value) {
-//     let day = moment().format('YYYY-MM-DDT' + value.split('T')[1])
-//     return moment(value).format('HHmm')
-//   }
-// });
-Vue.filter('localDay', function(value) {
+  return ''
+}
+
+const localDay = (value: any) => {
   if (value) {
     return moment(value).format('dddd')
   }
-});
-var abbrs = {
+  return ''
+}
+const abbrs: Record<string, string> = {
     EST : 'Eastern Standard Time',
     EDT : 'Eastern Daylight Time',
     CST : 'Central Standard Time',
@@ -64,23 +71,16 @@ var abbrs = {
     PDT : 'Pacific Daylight Time',
 };
 
-moment.fn.zoneName = function () {
+(moment.fn as any).zoneName = function () {
     var abbr = this.zoneAbbr();
     return abbrs[abbr] || abbr;
 };
-export default {
-  props: ['station'],
-  data() {
-    return {
-      today: moment().format('YYYY-MM-DD'),
-      selectedDay: null,
-      schedule: null,
-      loaded: false,
-      moment: moment
-    }
-  },
-  methods: {
-    eventName(payload) {
+
+const today = ref(moment().format('YYYY-MM-DD'))
+const selectedDay = ref<number | null>(null)
+const schedule = ref<any[] | null>(null)
+const loaded = ref(false)
+const eventName = (payload: any) => {
       let now = moment();
       let output;
       if (moment(payload.end.date + 'T' + payload.end.time) > now && moment(payload.start.date + 'T' + payload.start.time) < now) {
@@ -88,36 +88,40 @@ export default {
       } else {
         output = payload.input.name + '<br />' + payload.start.time + '-' + payload.end.time;
       }
-      output += '<i aria-hidden="true" class="v-icon notranslate mdi mdi-information theme--dark" style="color: #5d5d5d; font-size:16px; margin-left: 3px;"></i>'
-      //output += ((payload.input.image) ? '' + `<div class="v-image__image v-image__image--cover" style="background-size: contain; width: 40px; height: 40px; position: inherit; background-image: url(${payload.input.image}); background-position: center center;"></div>` : '')
-      return output
-    },
-    intervalFormat(interval) {
-      return interval.time
-    },
-    getEventColor (event) {
+  output += '<i aria-hidden="true" class="v-icon notranslate mdi mdi-information theme--dark" style="color: #5d5d5d; font-size:16px; margin-left: 3px;"></i>'
+  //output += ((payload.input.image) ? '' + `<div class="v-image__image v-image__image--cover" style="background-size: contain; width: 40px; height: 40px; position: inherit; background-image: url(${payload.input.image}); background-position: center center;"></div>` : '')
+  return output
+}
+
+const intervalFormat = (interval: any) => {
+  return interval.time
+}
+
+const getEventColor = (event: any) => {
       let now = moment();
       if (moment(event.end) > now && moment(event.start) < now) {
         return 'rgb(0, 0, 0)';
       } else if (moment(event.start) < now) {
         return 'rgb(39, 39, 39)';
-      } else {
-        return 'rgb(39, 39, 39)';
-      }
-    // border-color: rgb(132, 132, 132);
-    // color: rgb(107, 107, 107);
-    },
-    getEventTextColor(event) {
+  } else {
+    return 'rgb(39, 39, 39)';
+  }
+  // border-color: rgb(132, 132, 132);
+  // color: rgb(107, 107, 107);
+}
+
+const getEventTextColor = (event: any) => {
       let now = moment();
       if (moment(event.end) > now && moment(event.start) < now) {
         return 'rgba(2, 255, 185, 0.87)';
       } else if (moment(event.start) < now) {
         return '#616161';
-      } else {
-        return 'rgb(185, 185, 185)';
-      }
-    },
-    showEvent(payload) {
+  } else {
+    return 'rgb(185, 185, 185)';
+  }
+}
+
+const showEvent = (payload: any) => {
       let occurs = null;
       switch(payload.event.occurs)
       {
@@ -135,44 +139,36 @@ export default {
           occurs = 'every ' + moment(payload.event.start).format('dddd')
           break;
       }
-      this.$dialog.confirm({
-        title: payload.event.name,
-        text: '<strong>' + payload.event.title + '</strong>' +
-        '<br />' + payload.event.location +
-        '<br />' + payload.event.start.split(' ')[1] + ' - ' + payload.event.end.split(' ')[1] +
-        ((occurs) ? ' (' + occurs + ')' : '') +
-        '<br /><br /><small>' + '' + payload.event.description + '</small>' +
-        ((payload.event.image) ? '<img src="' +payload.event.image+ '" style="max-width: 400px;" />' : null),
-        fullscreen:false
-      })
-    },
-    chooseDay(val) {
-      this.selectedDay = val
-    },
-    isDay(val) {
-      return this.selectedDay == val
-    },
-    swipe (direction) {
-      switch(direction) {
-        case 'left':
-          this.loadPrev();
-          break;
-        case 'right':
-          this.loadNext();
-          break;
-      }
-    }
-  },
-  computed: {
-    currenStationIndex() {
-      return this.$route.params.stationId
-    }
-  },
-  mounted() {
-    this.selectedDay = moment().day()
-    if (this.station) {
-      this.$axios.get(this.station.schedule.url).then((res) => {
-        this.schedule = res.data.map((item) => {
+  const { $dialog } = useNuxtApp()
+  $dialog.confirm({
+    title: payload.event.name,
+    text: '<strong>' + payload.event.title + '</strong>' +
+    '<br />' + payload.event.location +
+    '<br />' + payload.event.start.split(' ')[1] + ' - ' + payload.event.end.split(' ')[1] +
+    ((occurs) ? ' (' + occurs + ')' : '') +
+    '<br /><br /><small>' + '' + payload.event.description + '</small>' +
+    ((payload.event.image) ? '<img src="' +payload.event.image+ '" style="max-width: 400px;" />' : null),
+    fullscreen:false
+  })
+}
+
+const chooseDay = (val: number) => {
+  selectedDay.value = val
+}
+
+const isDay = (val: number) => {
+  return selectedDay.value == val
+}
+
+const currenStationIndex = computed(() => {
+  return route.params.stationId
+})
+
+onMounted(() => {
+  selectedDay.value = moment().day()
+  if (props.station) {
+    $fetch(props.station.schedule.url).then((res: any) => {
+      schedule.value = res.map((item: any) => {
           let start, end;
           // if (moment().isDST()) {
           //   start = moment(item.start).subtract(1, 'hours').format('YYYY-MM-DD HH:mm')
@@ -191,19 +187,20 @@ export default {
             occurs: item.occurs,
             image: (item.image) ? item.image : '',
             start: start,
-            end: end
-          }
-        })
-      })
-    }
-    this.$nextTick(() => {
-      this.loaded = true
+        end: end
+      }
     })
-    setTimeout(() => {
-      this.$refs.calendar.scrollToTime(moment().format('HH:mm'))
-    }, 3000)
   }
-}
+  nextTick(() => {
+    loaded.value = true
+  })
+  setTimeout(() => {
+    if (calendar.value) {
+      (calendar.value as any).scrollToTime(moment().format('HH:mm'))
+    }
+  }, 3000)
+})
+</script>
 </script>
 
 <style>

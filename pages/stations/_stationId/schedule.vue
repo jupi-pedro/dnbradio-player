@@ -2,14 +2,14 @@
   <div>
     <v-toolbar
       color="transparent"
-      dark
+      theme="dark"
       flat
       :max-width="560"
       style="margin:auto;"
       v-if="hideNav==false"
     >
       <!-- <v-app-bar-nav-icon></v-app-bar-nav-icon> -->
-      <v-btn icon class="ml-2" @click="$router.go(-1)">
+      <v-btn icon class="ml-2" @click="router.go(-1)">
         <v-icon medium transparent>arrow_back</v-icon>
       </v-btn>
       <v-toolbar-title></v-toolbar-title>
@@ -41,26 +41,27 @@
   </div>
 </template>
 
-<script>
-// init data
+<script setup lang="ts">
 import stations from "@/data/stations";
-
-// models
-import Station from "@/models/Station";
-
-// comp
+import { useStationStore } from "@/stores/station";
+import { useRoute, useRouter } from "vue-router";
 import StationSchedule from "~/components/StationSchedule";
 import StationCalendar from "~/components/StationCalendar";
-import Logo from "~/components/Logo.vue";
 import moment from "moment-timezone";
-import Vue from "vue";
 
-Vue.filter("localTZ", function(value) {
+const route = useRoute()
+const router = useRouter()
+const stationStore = useStationStore()
+
+// Vue 3 doesn't have filters, use computed or functions
+const localTZ = (value: any) => {
   if (value) {
     return moment(value).format("ZZ");
   }
-});
-var abbrs = {
+  return ''
+}
+
+const abbrs: Record<string, string> = {
   EST: "Eastern Standard Time",
   EDT: "Eastern Daylight Time",
   CST: "Central Standard Time",
@@ -71,64 +72,53 @@ var abbrs = {
   PDT: "Pacific Daylight Time"
 };
 
-moment.fn.zoneName = function() {
+(moment.fn as any).zoneName = function() {
   var abbr = this.zoneAbbr();
   return abbrs[abbr] || abbr;
 };
 
-export default {
-  components: {
-    Logo,
-    StationSchedule,
-    StationCalendar
-  },
-  async fetch() {
-    const stationsInitData = await stations();
-    Station.create({ data: stationsInitData });
-  },
-  data() {
-    return {
-      view: "",
-      hideNav: false,
-      hideTitle: false,
-      themeClass: "",
-    };
-  },
-  async mounted() {
-    if (this.$route.query.calendar) {
-      this.view = "calendar";
-    } else {
-      this.view = "schedule";
-    }
-    this.hideNav = this.$route.query?.hideNav || false;
-    this.hideTitle = this.$route.query?.hideTitle || false;
-    this.themeClass = 'invertTrue' || "";
-    const stationsInitData = await stations();
-    Station.create({ data: stationsInitData });
-  },
-  computed: {
-    dst() {
-      return moment().isDST() ? "DST" : "";
-    },
-    tz() {
-      return moment.tz.guess();
-    },
-    currenStationIndex() {
-      return this.$route.params && this.$route.params.stationId
-        ? this.$route.params.stationId
-        : 0;
-    },
-    stations() {
-      return Station.query().get();
-    },
-    station() {
-      let index = this.currenStationIndex || 0;
-      return this.stations.filter(
-        item => item.id == this.currenStationIndex
-      )[0];
-    }
+const view = ref("")
+const hideNav = ref(false)
+const hideTitle = ref(false)
+const themeClass = ref("")
+
+const dst = computed(() => {
+  return moment().isDST() ? "DST" : "";
+})
+
+const tz = computed(() => {
+  return moment.tz.guess();
+})
+
+const currenStationIndex = computed(() => {
+  return route.params?.stationId ? Number(route.params.stationId) : 0;
+})
+
+const stationsList = computed(() => {
+  return stationStore.stations;
+})
+
+const station = computed(() => {
+  const index = currenStationIndex.value || 0;
+  return stationsList.value.find(
+    item => item.id == currenStationIndex.value
+  );
+})
+
+onMounted(async () => {
+  if (route.query.calendar) {
+    view.value = "calendar";
+  } else {
+    view.value = "schedule";
   }
-};
+  hideNav.value = route.query?.hideNav === 'true' || false;
+  hideTitle.value = route.query?.hideTitle === 'true' || false;
+  themeClass.value = 'invertTrue' || "";
+  if (stationStore.stations.length === 0) {
+    const stationsInitData = await stations();
+    stationStore.setStations(stationsInitData);
+  }
+})
 </script>
 <style>
 

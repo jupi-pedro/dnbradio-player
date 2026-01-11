@@ -4,131 +4,97 @@
 </div>
 </template>
 
-<script>
-
-// init data
+<script setup lang="ts">
 import stations from '@/data/stations'
+import { useStationStore } from "@/stores/station";
+import { useRoute } from "vue-router";
 
-// models
-import Station from '@/models/Station'
+definePageMeta({
+  layout: 'ls-widget'
+})
 
-// comp
-import StationList from '~/components/StationList'
-import Logo from '~/components/Logo.vue'
+const route = useRoute()
+const stationStore = useStationStore()
 
-export default {
-  layout: 'ls-widget',
-  components: {
-    Logo,
-    StationList
-  },
-  async fetch () {
-    const stationsInitData = await stations()
-    Station.create({ data: stationsInitData })
-  },
-  data() {
-    return {
-      nowplaying: {
-        artist: null,
-        title: null,
-        listeners: null,
-        albumyear: null,
-        album: null,
-        song_type: null,
-        label: null
-      },
-    }
-  },
-  methods: {
-    fetchNowplaying() {
-      if (!this.station) {
-        return null;
-      }
-      return this.$axios.get(this.station.nowplaying_url.url, { progress: false }).then((res) => {
+const nowplaying = ref({
+  artist: null,
+  title: null,
+  listeners: null,
+  albumyear: null,
+  album: null,
+  song_type: null,
+  label: null
+})
 
-        switch (this.station.nowplaying_url.type)
-        {
-          case 'azuracast':
-            this.nowplaying = {
-              artist: res.data.now_playing.streamer_name ?? res.data.now_playing.song.artist,
-              title: res.data.now_playing.song.title,
-              listeners: res.data.listeners.current,
-              albumyear: null,
-              album: res.data.now_playing.song.album,
-              song_type: res.data.now_playing.streamer_name ? 'L' : 'S',
-              label: null
-            };
-          break;
-          case 'sam':
-            this.nowplaying = res.data
-          break;
-          case 'shoutcast':
-            let d = res.data.replace(/(<([^>]+)>)/ig,"").split(',')
-            let rejoin = null
-            if (d[8]) {
-              rejoin = d[6] + ', ' + d[7] + ', ' + d[8]
-            } else if (d[7]) {
-              rejoin = d[6] + ', ' + d[7]
-            } else {
-              rejoin = d[6]
-            }
-            let parts = rejoin.split(' - ')
-            let artist = parts[0];
-            let title = parts[1] || parts[1];
-            let data = { listeners: d[0], status: d[1], peak: d[2], max: d[3], reported: d[4], bitrate: d[5], artist: artist, title: title }
-            this.nowplaying.artist = data.artist
-            this.nowplaying.title = data.title
-            this.nowplaying.listeners = data.listeners
-            this.nowplaying.albumyear = null
-            this.nowplaying.album = null
-            this.nowplaying.song_type = ''
-            this.nowplaying.label = null
-          break;
-        }
-
-      })
-    },
-  },
-  computed: {
-    currenStationIndex() {
-      return (this.$route.params && this.$route.params.stationId) ? this.$route.params.stationId : 1
-    },
-    stations() {
-      return Station.query().get()
-    },
-    station() {
-      let index = this.currenStationIndex || 1
-      return this.stations.filter((item) => item.id == index)[0]
-    },
-    artist() {
-      return (this.nowplaying) ? this.nowplaying.artist : null
-    },
-    title() {
-      return (this.nowplaying) ? this.nowplaying.title : null
-    },
-    albumyear() {
-      return (this.nowplaying) ? this.nowplaying.album_year : null
-    },
-    song_type() {
-      return (this.nowplaying) ? this.nowplaying.song_type : null
-    },
-    label() {
-      return (this.nowplaying) ? this.nowplaying.label : null
-    },
-    listeners() {
-      return (this.nowplaying) ? this.nowplaying.listeners : null
-    },
-  },
-  async mounted() {
-    const stationsInitData = await stations()
-    //console.log('stationsInitData', stationsInitData)
-    Station.create({ data: stationsInitData })
-    this.fetchNowplaying()
-    setInterval(() => {
-      this.fetchNowplaying()
-    },60000)
+const fetchNowplaying = () => {
+  if (!station.value) {
+    return null;
   }
+  return $fetch(station.value.nowplaying_url.url).then((res: any) => {
+    switch (station.value.nowplaying_url.type) {
+      case 'azuracast':
+        nowplaying.value = {
+          artist: res.now_playing.streamer_name ?? res.now_playing.song.artist,
+          title: res.now_playing.song.title,
+          listeners: res.listeners.current,
+          albumyear: null,
+          album: res.now_playing.song.album,
+          song_type: res.now_playing.streamer_name ? 'L' : 'S',
+          label: null
+        };
+      break;
+      case 'sam':
+        nowplaying.value = res
+      break;
+      case 'shoutcast':
+        let d = res.replace(/(<([^>]+)>)/ig,"").split(',')
+        let rejoin = null
+        if (d[8]) {
+          rejoin = d[6] + ', ' + d[7] + ', ' + d[8]
+        } else if (d[7]) {
+          rejoin = d[6] + ', ' + d[7]
+        } else {
+          rejoin = d[6]
+        }
+        let parts = rejoin.split(' - ')
+        let artist = parts[0];
+        let title = parts[1] || parts[1];
+        let dataObj = { listeners: d[0], status: d[1], peak: d[2], max: d[3], reported: d[4], bitrate: d[5], artist: artist, title: title }
+        nowplaying.value.artist = dataObj.artist
+        nowplaying.value.title = dataObj.title
+        nowplaying.value.listeners = dataObj.listeners
+        nowplaying.value.albumyear = null
+        nowplaying.value.album = null
+        nowplaying.value.song_type = ''
+        nowplaying.value.label = null
+      break;
+    }
+  })
 }
+
+const currenStationIndex = computed(() => {
+  return route.params?.stationId ? Number(route.params.stationId) : 1
+})
+
+const stationsList = computed(() => {
+  return stationStore.stations
+})
+
+const station = computed(() => {
+  const index = currenStationIndex.value || 1
+  return stationsList.value.find((item) => item.id == index)
+})
+
+onMounted(async () => {
+  if (stationStore.stations.length === 0) {
+    const stationsInitData = await stations()
+    stationStore.setStations(stationsInitData)
+  }
+  fetchNowplaying()
+  setInterval(() => {
+    fetchNowplaying()
+  },60000)
+})
 </script>
 <style scoped>
   .listeners {  font-family: 'Roboto', sans-serif; text-align:center; font-weight: 600; font-size: 1.9em; }

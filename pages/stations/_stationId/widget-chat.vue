@@ -6,7 +6,7 @@
     flat
     transparent>
   <div>
-    <v-list  dark style="background:transparent;">
+    <v-list  theme="dark" style="background:transparent;">
       <div v-for="(item, index) in filteredData" :key="index">
       <template>
 
@@ -34,60 +34,49 @@
 </div>
 </template>
 
-<script>
-
-// init data
+<script setup lang="ts">
 import stations from '@/data/stations'
+import { useStationStore } from "@/stores/station";
 
-// models
-import Station from '@/models/Station'
+definePageMeta({
+  layout: 'ls-widget'
+})
 
-// comp
-import StationList from '~/components/StationList'
-import Logo from '~/components/Logo.vue'
+const stationStore = useStationStore()
 
-export default {
-  layout: 'ls-widget',
-  components: {
-    Logo,
-    StationList
-  },
-  data() {
-    return {
-      data: []
-    }
-  },
-  methods: {
-    fetchData() {
-      this.$axios.get('https://dnbradio.hardcoding.nl/api/chat_log', {progress: false}).then((res) => {
-        this.data = res.data
-        setTimeout(() => {
-          document.querySelector('.chatlog').scrollTo(0,document.querySelector(".chatlog").scrollHeight)
-        }, 1000)
-      })
-    }
-  },
-  mounted() {
-    this.fetchData();
-    setInterval(() => {
-      this.fetchData()
-    }, 5000);
-  },
-  computed: {
-    filteredData() {
-      return this.data.slice(0, 30).map((item) => {
-        item.message = item.message.replace('ACTION ', '').replace('', '')
+const data = ref<any[]>([])
+
+const fetchData = () => {
+  $fetch('https://dnbradio.hardcoding.nl/api/chat_log').then((res: any) => {
+    data.value = res
+    setTimeout(() => {
+      const chatlog = document.querySelector('.chatlog') as HTMLElement
+      if (chatlog) {
+        chatlog.scrollTo(0, chatlog.scrollHeight)
+      }
+    }, 1000)
+  })
+}
+
+const filteredData = computed(() => {
+  return data.value.slice(0, 30).map((item: any) => {
+    item.message = item.message.replace('ACTION ', '').replace('', '')
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;")
       .trim();
-        return item
-      }).reverse()
-    }
-  }
-}
+    return item
+  }).reverse()
+})
+
+onMounted(() => {
+  fetchData();
+  setInterval(() => {
+    fetchData()
+  }, 5000);
+})
 </script>
 <style>
   .theme--light.v-card, .theme--light.v-sheet { background-color: transparent !important; }
