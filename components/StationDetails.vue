@@ -12,7 +12,7 @@
       <v-toolbar
         min-width="300"
         color="transparent"
-        theme="dark"
+        dark
         flat
         class="user-v-toolbar"
       >
@@ -23,10 +23,10 @@
           @click="playerToggleVisuals"
           value="vis"
         >
-          <v-icon medium dark :size="windowHeight > windowWidth ? 32: 24">brightness_2</v-icon>
+          <v-icon medium dark :size="windowHeight > windowWidth ? 32: 24">mdi-brightness-2</v-icon>
         </v-btn>
         <v-btn v-else icon style="opacity: 0.3" @click="playerToggleVisuals" value="vis">
-          <v-icon medium dark :size="windowHeight > windowWidth ? 32: 24">brightness_2</v-icon>
+          <v-icon medium dark :size="windowHeight > windowWidth ? 32: 24">mdi-brightness-2</v-icon>
         </v-btn>
         <v-spacer></v-spacer>
 
@@ -72,8 +72,8 @@
             :class="[isLoading || isPlaying ? 'pulse' : 'faded', (windowHeight > windowWidth) ? 'big-image': '']"
             @click="playIfStopped()"/>
           </div>
-        <div style="flex-shrink: 0">
-          <v-card-text class="user-card-text" :class="(windowHeight > windowWidth) ? 'big-font': 'normal-font'">
+        <div style="flex-shrink: 0; margin-top: auto;">
+          <v-card-text class="user-card-text" p0 :class="(windowHeight > windowWidth) ? 'big-font': 'normal-font'">
             <p v-if="isOffline" class="offline-indicator indicator-text">DEVICE OFFLINE!</p>
             <p v-else-if="isLoading" class="indicator-text wait-indicator">Please Wait...</p>
             <p v-else-if="isStalled" class="offline-indicator indicator-text">{{ stalledMessage || 'Connection error. Please try again later.' }}</p>
@@ -91,7 +91,7 @@
             </p>
           </v-card-text>
 
-          <v-card-actions fluid>
+          <v-card-actions p0 fluid>
             <v-row justify="space-around" class="user-button-group">
               <v-btn icon @click="loadPrev(false)">
                 <v-icon medium dark :size="windowHeight > windowWidth ? 32: 24">skip_previous</v-icon>
@@ -178,7 +178,7 @@
                   class="user-footer-link"
                   >dnbradio-player/{{ APP_BRANCH }}:v{{ APP_VERSION }}/{{userAgent}}
                   <img
-                    :src="`${this.APP_BASE_URL}github-mark-white.svg`"
+                    :src="`${APP_BASE_URL}github-mark-white.svg`"
                     height="12"
                     alt="GitHub"
                     style="margin-left: 3px"
@@ -1206,13 +1206,13 @@ html {
   position: fixed;
   z-index: 0;
 }
-.stationNav {
-  top: 10px;
-}
 </style>
 <style scoped>
 .v-item-group.v-bottom-navigation .v-btn {
   min-width: auto;
+}
+.v-bottom-navigation {
+  position: static !important;
 }
 .animate-border {
   --angle: 45deg;
@@ -1355,10 +1355,12 @@ html {
 }
 .stationNav{
   border: 0px;
+  height: auto!important;
   margin: 10px auto 0px;
   box-shadow: none;
   background-color: transparent!important;
   justify-content: space-around!important;
+  position: static !important;
 }
 .bottom-indicator{
   margin-top: 10px; color: rgb(99, 99, 99);
