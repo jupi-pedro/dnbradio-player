@@ -99,7 +99,7 @@
               <v-btn icon @click="volDown">
                 <v-icon medium dark :size="windowHeight > windowWidth ? 32: 24">mdi-volume-minus</v-icon>
               </v-btn>
-              <v-icon size="50" v-if="!isPlaying" @disable="isLoading" @click="play">mdi-play-circle</v-icon>
+              <v-icon size="50" v-if="!isPlaying" @click="play" :class="{ 'opacity-50 pointer-events-none': isLoading }">mdi-play-circle</v-icon>
               <v-icon size="50" v-if="isPlaying" @click="pause">mdi-pause-circle</v-icon>
               <v-btn icon @click="volUp">
                 <v-icon medium dark :size="windowHeight > windowWidth ? 32: 24">mdi-volume-plus</v-icon>
@@ -449,7 +449,7 @@ const attachListeners = () => {
   }
 }
 
-const initStream = () => {
+const initStream = async () => {
   if (playerVisualsEnabled.value) {
     console.log('restarting stars');
     startStars(); // restart
@@ -458,10 +458,20 @@ const initStream = () => {
   }
   if ($sound?.src == props.station?.streams?.[0]?.url) {
     if ($sound?.paused) {
-      $sound.play();
+      try {
+        const playPromise = $sound.play();
+        if (playPromise !== undefined) {
+          await playPromise;
+        }
+        isPlaying.value = true;
+      } catch (error: any) {
+        console.error("Error playing existing stream:", error);
+        if (error.name !== 'AbortError') {
+          isPlaying.value = false;
+        }
+      }
     }
     console.log("stream already loaded");
-    isPlaying.value = true;
     return true;
   }
   const streamUrl = props.station?.streams?.[0]?.url
@@ -481,24 +491,31 @@ const initStream = () => {
 
 const initPlayer = async (auto?: boolean) => {
   if ($sound && paused.value == true && readyState.value == 4) {
-    play();
+    await play();
     isLoading.value = false;
     return;
   }
   isLoading.value = true;
 
   // fetch station info
-  fetchNowplaying()
-    .then(() => {
-      if (!props.station) {
-        throw "station not ready";
-      }
+  try {
+    await fetchNowplaying();
+    if (!props.station) {
+      throw "station not ready";
+    }
+    // Initialize the stream
+    const streamInitialized = await initStream();
+    if (!streamInitialized) {
+      console.error("Failed to initialize stream");
       isLoading.value = false;
-    })
-    .catch((err) => {
-      console.log(err);
-      });
+      return;
+    }
+    isLoading.value = false;
+  } catch (err) {
+    console.log(err);
+    isLoading.value = false;
   }
+}
 
 const togglePlankton = () => {
   if (visOn.value == false) {
@@ -651,13 +668,58 @@ const loadRandom = () => {
 }
 
 const play = async () => {
-  isPlaying.value = true;
-  if ($sound) {
-    $sound.play();
+  // Prevent multiple clicks while loading
+  if (isLoading.value) {
+    return;
+  }
+  
+  if (!$sound) {
+    await initPlayer();
+    // After initPlayer, try to play if stream is ready
+    if ($sound && $sound.src) {
+      await play();
+    }
+    return;
+  }
+  
+  // Ensure stream is initialized before playing
+  if (!$sound.src || $sound.src === '') {
+    isLoading.value = true;
+    const streamInitialized = await initStream();
+    if (!streamInitialized) {
+      console.error("Failed to initialize stream");
+      isLoading.value = false;
+      return;
+    }
+    // Wait for audio to be ready
+    await new Promise<void>((resolve) => {
+      if ($sound.readyState >= 2) {
+        resolve();
+      } else {
+        $sound.addEventListener('canplay', () => resolve(), { once: true });
+        // Fallback timeout
+        setTimeout(() => resolve(), 5000);
+      }
+    });
+  }
+  
+  try {
+    // Only set isPlaying after play promise resolves
+    const playPromise = $sound.play();
+    if (playPromise !== undefined) {
+      await playPromise;
+    }
+    // Don't set isPlaying here - let the onplay event handler set it
+    // This prevents race conditions
     fetchNowplaying();
     isLoading.value = false;
-  } else {
-    await initPlayer();
+  } catch (error: any) {
+    console.error("Error playing audio:", error);
+    // If play was interrupted, don't set isPlaying to true
+    if (error.name !== 'AbortError') {
+      isPlaying.value = false;
+      isLoading.value = false;
+    }
   }
 }
 
@@ -1147,9 +1209,9 @@ watch(playerVisualsEnabled, (val) => {
   }
 })
 
-watch(streamurl, (val) => {
+watch(streamurl, async (val) => {
   console.log("streamurl changed", val);
-  initStream();
+  await initStream();
 })
 </script>
 
