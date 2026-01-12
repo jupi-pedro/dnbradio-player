@@ -116,7 +116,7 @@
             @click="router.push('/stations/' + currIndex + '/podcast')"
             class="nav-button"
             >
-              <v-icon dark size="24">voicemail</v-icon>
+              <v-icon dark size="24">mdi-voicemail</v-icon>
               <p>podcast</p>
             </button>
             <button
@@ -133,7 +133,7 @@
               value="favorite"
               class="nav-button"
             >
-            <v-icon dark color="red" size="24">favorite</v-icon>
+            <v-icon dark color="red" size="24">mdi-heart</v-icon>
               <p>donate</p>
             </button>
             <button
@@ -178,7 +178,7 @@
                   class="user-footer-link"
                   >dnbradio-player/{{ APP_BRANCH }}:v{{ APP_VERSION }}/{{userAgent}}
                   <img
-                    :src="`${APP_BASE_URL}github-mark-white.svg`"
+                    :src="githubIcon"
                     height="12"
                     alt="GitHub"
                     style="margin-left: 3px"
@@ -228,7 +228,7 @@
           </div>
           <div class="pb-6" v-if="station.podcast && station.podcast.website">
             <v-btn rounded @click="launchLink(station.podcast.website)">
-              <v-icon left :size="windowHeight > windowWidth ? 32: 24">voicemail</v-icon> Podcast
+              <v-icon left :size="windowHeight > windowWidth ? 32: 24">mdi-voicemail</v-icon> Podcast
             </v-btn>
           </div>
 
@@ -268,6 +268,7 @@ import stars from "@/vis/stars";
 import { usePlayerStore } from "@/stores/player";
 import { useStationStore } from "@/stores/station";
 import { useRoute, useRouter } from "vue-router";
+import githubIcon from "~/static/github-mark-white.svg";
 
 const props = defineProps<{
   station: any | null
@@ -924,6 +925,7 @@ const stopStars = () => {
 const APP_BASE_URL = computed(() => {
   return config.public.APP_BASE_URL;
 })
+
 
 const userAgent = computed(() => {
   if (!navigator) return "";
