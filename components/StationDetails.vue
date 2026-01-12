@@ -1355,7 +1355,6 @@ html {
 }
 .stationNav{
   border: 0px;
-  height: auto!important;
   margin: 10px auto 0px;
   box-shadow: none;
   background-color: transparent!important;
