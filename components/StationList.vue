@@ -1,8 +1,8 @@
 <template>
   <div v-if="station" class="main-player-content">
-    <v-card flat :width="windowWidth" :height="windowHeight">
+  
       <StationDetails :station="station" />
-    </v-card>
+
   </div>
   <div v-else class="loading-container">
     <p>Loading stations...</p>
